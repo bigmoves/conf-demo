@@ -1,184 +1,174 @@
-import gleam/http/response.{type Response}
-import gleam/int
-import gleam/json
-import gleam/list
-import gleam/option.{type Option}
-import gleam/result
+import api/graphql
+import api/profile as profile_api
+import gleam/javascript/promise
+import gleam/option.{type Option, None, Some}
+import gleam/uri.{type Uri}
 import lustre
 import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
-import plinth/browser/document
-import plinth/browser/element as plinth_element
-import rsvp
-import shared/groceries.{type GroceryItem, GroceryItem}
+import modem
+import pages/home
+import pages/profile
+import ui/layout
 
 pub fn main() {
-  let initial_items =
-    document.query_selector("#model")
-    |> result.map(plinth_element.inner_text)
-    |> result.try(fn(json) {
-      json.parse(json, groceries.grocery_list_decoder())
-      |> result.replace_error(Nil)
-    })
-    |> result.unwrap([])
-
   let app = lustre.application(init, update, view)
-  let assert Ok(_) = lustre.start(app, "#app", initial_items)
+  let assert Ok(_) = lustre.start(app, "#app", Nil)
 
   Nil
 }
 
 // MODEL -----------------------------------------------------------------------
 
-type Model {
-  Model(
-    items: List(GroceryItem),
-    new_item: String,
-    saving: Bool,
-    error: Option(String),
-  )
+pub type Route {
+  Home
+  Profile(handle: String)
+  NotFound(uri: Uri)
 }
 
-fn init(items: List(GroceryItem)) -> #(Model, Effect(Msg)) {
-  let model =
-    Model(items: items, new_item: "", saving: False, error: option.None)
+pub type ProfileState {
+  NotAsked
+  Loading
+  Loaded(profile: profile_api.Profile)
+  Failed(error: String)
+}
 
-  #(model, effect.none())
+type Model {
+  Model(route: Route, profile_state: ProfileState)
+}
+
+fn init(_flags) -> #(Model, Effect(Msg)) {
+  let route = case modem.initial_uri() {
+    Ok(uri) -> parse_route(uri)
+    Error(_) -> Home
+  }
+
+  // Check if we need to fetch profile data on initial load
+  let #(model, initial_effect) = case route {
+    Profile(handle: handle) -> {
+      let model = Model(route: route, profile_state: Loading)
+      #(model, fetch_profile(handle))
+    }
+    _ -> {
+      let model = Model(route: route, profile_state: NotAsked)
+      #(model, effect.none())
+    }
+  }
+
+  let modem_effect = modem.init(on_url_change)
+
+  // Combine both effects
+  let combined_effect = effect.batch([modem_effect, initial_effect])
+
+  #(model, combined_effect)
+}
+
+fn on_url_change(uri: Uri) -> Msg {
+  uri
+  |> parse_route
+  |> UserNavigatedTo
+}
+
+fn parse_route(uri: Uri) -> Route {
+  case uri.path_segments(uri.path) {
+    [] | [""] -> Home
+    ["profile", handle] -> Profile(handle: handle)
+    _ -> NotFound(uri: uri)
+  }
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 type Msg {
-  ServerSavedList(Result(Response(String), rsvp.Error))
-  UserAddedItem
-  UserTypedNewItem(String)
-  UserSavedList
-  UserUpdatedQuantity(index: Int, quantity: Int)
+  UserNavigatedTo(route: Route)
+  ProfileFetched(result: Result(Option(profile_api.Profile), String))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ServerSavedList(Ok(_)) -> #(
-      Model(..model, saving: False, error: option.None),
-      effect.none(),
-    )
+    UserNavigatedTo(route: route) -> {
+      let model = Model(..model, route: route)
 
-    ServerSavedList(Error(_)) -> #(
-      Model(..model, saving: False, error: option.Some("Failed to save list")),
-      effect.none(),
-    )
-
-    UserAddedItem -> {
-      case model.new_item {
-        "" -> #(model, effect.none())
-        name -> {
-          let item = GroceryItem(name: name, quantity: 1)
-          let updated_items = list.append(model.items, [item])
-
-          #(Model(..model, items: updated_items, new_item: ""), effect.none())
+      // Fetch profile if navigating to profile page
+      case route {
+        Profile(handle: handle) -> {
+          let model = Model(..model, profile_state: Loading)
+          let effect = fetch_profile(handle)
+          #(model, effect)
         }
+        _ -> #(model, effect.none())
       }
     }
 
-    UserTypedNewItem(text) -> #(Model(..model, new_item: text), effect.none())
-
-    UserSavedList -> #(Model(..model, saving: True), save_list(model.items))
-
-    UserUpdatedQuantity(index:, quantity:) -> {
-      let updated_items =
-        list.index_map(model.items, fn(item, item_index) {
-          case item_index == index {
-            True -> GroceryItem(..item, quantity:)
-            False -> item
-          }
-        })
-
-      #(Model(..model, items: updated_items), effect.none())
+    ProfileFetched(result: result) -> {
+      let profile_state = case result {
+        Ok(Some(profile)) -> Loaded(profile)
+        Ok(None) -> Failed("Profile not found")
+        Error(error) -> Failed(error)
+      }
+      #(Model(..model, profile_state: profile_state), effect.none())
     }
   }
 }
 
-fn save_list(items: List(GroceryItem)) -> Effect(Msg) {
-  let body = groceries.grocery_list_to_json(items)
-  let url = "/api/groceries"
+fn fetch_profile(handle: String) -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    // TODO: Get these from environment or config
+    let config =
+      graphql.Config(
+        api_url: "https://api.slices.network",
+        slice_uri: "at://did:plc:bcgltzqazw5tb6k2g3ttenbj/network.slices.slice/3m3gc7lhwzx2z",
+        access_token: "",
+      )
 
-  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
+    profile_api.get_profile_by_handle(config, handle)
+    |> promise.tap(fn(result) { dispatch(ProfileFetched(result)) })
+
+    Nil
+  })
 }
 
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  let styles = [
-    #("max-width", "30ch"),
-    #("margin", "0 auto"),
-    #("display", "flex"),
-    #("flex-direction", "column"),
-    #("gap", "1em"),
-  ]
+  let user =
+    Some(layout.User(name: Some("Chad Miller"), handle: "chadtmiller.com"))
 
-  html.div([attribute.styles(styles)], [
-    html.h1([], [html.text("Grocery List")]),
-    view_grocery_list(model.items),
-    view_new_item(model.new_item),
-    html.div([], [
-      html.button(
-        [event.on_click(UserSavedList), attribute.disabled(model.saving)],
-        [
-          html.text(case model.saving {
-            True -> "Saving..."
-            False -> "Save List"
-          }),
-        ],
-      ),
-    ]),
-    case model.error {
-      option.None -> element.none()
-      option.Some(error) ->
-        html.div([attribute.style("color", "red")], [html.text(error)])
+  layout.layout(user, [
+    case model.route {
+      Home -> home.view()
+      Profile(handle: _handle) -> {
+        case model.profile_state {
+          NotAsked | Loading ->
+            html.div([attribute.class("text-center py-12")], [
+              html.p([attribute.class("text-zinc-400")], [
+                html.text("Loading profile..."),
+              ]),
+            ])
+          Loaded(profile: p) -> profile.view(p)
+          Failed(error: error) ->
+            html.div([attribute.class("text-center py-12")], [
+              html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [
+                html.text("Error"),
+              ]),
+              html.p([attribute.class("text-zinc-400")], [html.text(error)]),
+            ])
+        }
+      }
+      NotFound(_) -> view_not_found()
     },
   ])
 }
 
-fn view_new_item(new_item: String) -> Element(Msg) {
-  html.div([], [
-    html.input([
-      attribute.placeholder("Enter item name"),
-      attribute.value(new_item),
-      event.on_input(UserTypedNewItem),
+fn view_not_found() -> Element(Msg) {
+  html.div([attribute.class("text-center py-12")], [
+    html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [
+      html.text("404 - Page Not Found"),
     ]),
-    html.button([event.on_click(UserAddedItem)], [html.text("Add")]),
-  ])
-}
-
-fn view_grocery_list(items: List(GroceryItem)) -> Element(Msg) {
-  case items {
-    [] -> html.p([], [html.text("No items in your list yet.")])
-    _ -> {
-      html.ul(
-        [],
-        list.index_map(items, fn(item, index) {
-          html.li([], [view_grocery_item(item, index)])
-        }),
-      )
-    }
-  }
-}
-
-fn view_grocery_item(item: GroceryItem, index: Int) -> Element(Msg) {
-  html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
-    html.span([attribute.style("flex", "1")], [html.text(item.name)]),
-    html.input([
-      attribute.style("width", "4em"),
-      attribute.type_("number"),
-      attribute.value(int.to_string(item.quantity)),
-      attribute.min("0"),
-      event.on_input(fn(value) {
-        result.unwrap(int.parse(value), 0)
-        |> UserUpdatedQuantity(index, quantity: _)
-      }),
+    html.p([attribute.class("text-zinc-400")], [
+      html.text("The page you're looking for doesn't exist."),
     ]),
   ])
 }

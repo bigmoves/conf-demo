@@ -1,0 +1,78 @@
+import api/profile.{type Profile}
+import gleam/list
+import gleam/option
+import gleam/string
+import lustre/attribute
+import lustre/element.{type Element}
+import lustre/element/html
+import ui/avatar
+import ui/button
+
+pub fn view(p: Profile) -> Element(msg) {
+  html.div([attribute.class("space-y-8")], [
+    // Profile header
+    html.div([attribute.class("flex items-start gap-6")], [
+      // Avatar
+      avatar.avatar(
+        p.avatar_url,
+        option.unwrap(p.display_name, p.did),
+        avatar.Xl,
+      ),
+
+      // User info
+      html.div([attribute.class("flex-1 space-y-2")], [
+        html.h2([attribute.class("text-3xl font-bold text-white")], [
+          html.text(option.unwrap(p.display_name, p.did)),
+        ]),
+        html.p([attribute.class("text-zinc-400 text-sm")], [
+          html.text(string.slice(p.did, 0, 20) <> "..."),
+        ]),
+      ]),
+
+      // Edit button
+      button.button([], button.Default, button.Md, [html.text("Edit Profile")]),
+    ]),
+
+    // Profile sections
+    html.div([attribute.class("space-y-6 pt-6 border-t border-zinc-800")], [
+      // About section (if description exists)
+      case p.description {
+        option.Some(desc) ->
+          html.div([attribute.class("space-y-3")], [
+            html.h3([attribute.class("text-lg font-semibold text-white")], [
+              html.text("About"),
+            ]),
+            html.p([attribute.class("text-zinc-400")], [html.text(desc)]),
+          ])
+        option.None -> html.div([], [])
+      },
+
+      // Interests section
+      case p.interests {
+        option.Some(interests) ->
+          case interests {
+            [] -> html.div([], [])
+            _ ->
+              html.div([attribute.class("space-y-3")], [
+                html.h3([attribute.class("text-lg font-semibold text-white")], [
+                  html.text("Interests"),
+                ]),
+                html.div([attribute.class("flex flex-wrap gap-2")], {
+                  list.map(interests, fn(interest) {
+                    html.span(
+                      [
+                        attribute.class(
+                          "px-3 py-1 bg-zinc-800 text-zinc-300 rounded-full text-sm",
+                        ),
+                      ],
+                      [html.text(interest)],
+                    )
+                  })
+                }),
+              ])
+          }
+        option.None -> html.div([], [])
+      },
+    ]),
+  ])
+}
