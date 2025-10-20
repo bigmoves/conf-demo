@@ -1,10 +1,9 @@
-import api/profile.{type Profile}
 import gleam/list
 import gleam/option
-import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
+import shared/profile.{type Profile}
 import ui/avatar
 import ui/button
 
@@ -21,12 +20,30 @@ pub fn view(p: Profile) -> Element(msg) {
 
       // User info
       html.div([attribute.class("flex-1 space-y-2")], [
+        // Display name
         html.h2([attribute.class("text-3xl font-bold text-white")], [
           html.text(option.unwrap(p.display_name, p.did)),
         ]),
-        html.p([attribute.class("text-zinc-400 text-sm")], [
-          html.text(string.slice(p.did, 0, 20) <> "..."),
+        // Handle
+        case p.handle {
+          option.Some(handle) ->
+            html.p([attribute.class("text-zinc-300 text-base")], [
+              html.text("@" <> handle),
+            ])
+          option.None -> html.div([], [])
+        },
+        // DID in muted text
+        html.p([attribute.class("text-zinc-500 text-sm font-mono")], [
+          html.text(p.did),
         ]),
+        // Home town
+        case p.home_town {
+          option.Some(town) ->
+            html.p([attribute.class("text-zinc-400 text-sm")], [
+              html.text("📍 " <> town),
+            ])
+          option.None -> html.div([], [])
+        },
       ]),
 
       // Edit button

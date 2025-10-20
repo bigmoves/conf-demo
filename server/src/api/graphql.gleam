@@ -1,31 +1,26 @@
-import api/graphql
 import gleam/dynamic/decode
-import gleam/javascript/promise
+import gleam/http
+import gleam/http/request
+import gleam/httpc
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
+import shared/profile.{type Profile}
 
-/// Profile data type matching org.atmosphereconf.profile schema
-pub type Profile {
-  Profile(
-    id: String,
-    uri: String,
-    cid: String,
-    did: String,
-    display_name: Option(String),
-    description: Option(String),
-    avatar_url: Option(String),
-    interests: Option(List(String)),
-    indexed_at: String,
+pub type Config {
+  Config(
+    api_url: String,
+    slice_uri: String,
+    access_token: String,
   )
 }
 
 /// Fetch profile by handle from the GraphQL API
 pub fn get_profile_by_handle(
-  config: graphql.Config,
+  config: Config,
   handle: String,
-) -> promise.Promise(Result(Option(Profile), String)) {
+) -> Result(Option(Profile), String) {
   let query =
     "
     query GetProfile($handle: String!) {
@@ -36,11 +31,13 @@ pub fn get_profile_by_handle(
             uri
             cid
             did
+            actorHandle
             displayName
             description
             avatar {
               url(preset: \"avatar\")
             }
+            homeTown
             interests
             indexedAt
           }
@@ -51,26 +48,46 @@ pub fn get_profile_by_handle(
 
   let variables = json.object([#("handle", json.string(handle))])
 
-  graphql.execute_query(config, query, variables)
-  |> promise.map(fn(result) {
-    case result {
-      Ok(response_body) -> parse_profile_response(response_body)
-      Error(error) -> Error(error)
-    }
-  })
+  let body_json =
+    json.object([
+      #("query", json.string(query)),
+      #("variables", variables),
+    ])
+
+  // Build the HTTP request
+  use req <- result.try(
+    request.to(config.api_url)
+    |> result.map_error(fn(_) { "Failed to create request" }),
+  )
+
+  let req =
+    request.set_method(req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("X-Slice-Uri", config.slice_uri)
+    |> request.set_body(json.to_string(body_json))
+
+  // Send the request
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP request failed" }),
+  )
+
+  // Check status code
+  case resp.status {
+    200 -> parse_profile_response(resp.body)
+    _ -> Error("API returned status " <> string.inspect(resp.status) <> " with body: " <> resp.body)
+  }
 }
 
 /// Parse the GraphQL response and extract profile data
-fn parse_profile_response(
-  response_body: String,
-) -> Result(Option(Profile), String) {
+fn parse_profile_response(response_body: String) -> Result(Option(Profile), String) {
   // Parse JSON
   use data <- result.try(
     json.parse(response_body, decode.dynamic)
-    |> result.map_error(fn(_) { "Failed to parse JSON" }),
+    |> result.map_error(fn(_) { "Failed to parse JSON response" }),
   )
 
-  // Extract the edges array using decode.at to navigate nested path
+  // Extract the edges array
   let edges_decoder =
     decode.at(
       ["data", "orgAtmosphereconfProfiles", "edges"],
@@ -88,14 +105,24 @@ fn parse_profile_response(
   case edges {
     [] -> Ok(None)
     [first_edge, ..] -> {
-      // Decode the profile from edge.node.* fields using subfield for nested paths
+      // Decode the profile from edge.node.* fields
       let profile_decoder = {
         use id <- decode.subfield(["node", "id"], decode.string)
         use uri <- decode.subfield(["node", "uri"], decode.string)
         use cid <- decode.subfield(["node", "cid"], decode.string)
         use did <- decode.subfield(["node", "did"], decode.string)
 
-        // For optional fields, use decode.at to get the value, then handle None case
+        // For optional fields
+        let handle = case
+          decode.run(
+            first_edge,
+            decode.at(["node", "actorHandle"], decode.optional(decode.string)),
+          )
+        {
+          Ok(val) -> val
+          Error(_) -> None
+        }
+
         let display_name = case
           decode.run(
             first_edge,
@@ -129,6 +156,19 @@ fn parse_profile_response(
           Error(_) -> None
         }
 
+        let home_town = case
+          decode.run(
+            first_edge,
+            decode.at(
+              ["node", "homeTown", "name"],
+              decode.optional(decode.string),
+            ),
+          )
+        {
+          Ok(val) -> val
+          Error(_) -> None
+        }
+
         let interests = case
           decode.run(
             first_edge,
@@ -143,14 +183,16 @@ fn parse_profile_response(
         }
 
         use indexed_at <- decode.subfield(["node", "indexedAt"], decode.string)
-        decode.success(Profile(
+        decode.success(profile.Profile(
           id:,
           uri:,
           cid:,
           did:,
+          handle:,
           display_name:,
           description:,
           avatar_url:,
+          home_town:,
           interests:,
           indexed_at:,
         ))

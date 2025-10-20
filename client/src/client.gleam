@@ -1,7 +1,9 @@
-import api/graphql
-import api/profile as profile_api
+import gleam/io
 import gleam/javascript/promise
-import gleam/option.{type Option, None, Some}
+import gleam/json
+import gleam/option.{None, Some}
+import gleam/result
+import gleam/string
 import gleam/uri.{type Uri}
 import lustre
 import lustre/attribute
@@ -10,7 +12,10 @@ import lustre/element.{type Element}
 import lustre/element/html
 import modem
 import pages/home
-import pages/profile
+import pages/profile as profile_page
+import plinth/browser/document
+import plinth/browser/element as plinth_element
+import shared/profile.{type Profile}
 import ui/layout
 
 pub fn main() {
@@ -31,7 +36,7 @@ pub type Route {
 pub type ProfileState {
   NotAsked
   Loading
-  Loaded(profile: profile_api.Profile)
+  Loaded(Profile)
   Failed(error: String)
 }
 
@@ -45,11 +50,24 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
     Error(_) -> Home
   }
 
+  // Try to read prerendered profile data from the server
+  let prerendered_profile = read_embedded_profile_data()
+
   // Check if we need to fetch profile data on initial load
   let #(model, initial_effect) = case route {
-    Profile(handle: handle) -> {
-      let model = Model(route: route, profile_state: Loading)
-      #(model, fetch_profile(handle))
+    Profile(handle: _handle) -> {
+      // Use prerendered data if available, otherwise show loading
+      case prerendered_profile {
+        Some(profile_data) -> {
+          let model = Model(route: route, profile_state: Loaded(profile_data))
+          #(model, effect.none())
+        }
+        None -> {
+          let model =
+            Model(route: route, profile_state: Failed("Profile not found"))
+          #(model, effect.none())
+        }
+      }
     }
     _ -> {
       let model = Model(route: route, profile_state: NotAsked)
@@ -63,6 +81,16 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
   let combined_effect = effect.batch([modem_effect, initial_effect])
 
   #(model, combined_effect)
+}
+
+fn read_embedded_profile_data() -> option.Option(Profile) {
+  document.query_selector("#model")
+  |> result.map(plinth_element.inner_text)
+  |> result.try(fn(json_string) {
+    json.parse(json_string, profile.profile_decoder())
+    |> result.replace_error(Nil)
+  })
+  |> option.from_result
 }
 
 fn on_url_change(uri: Uri) -> Msg {
@@ -83,7 +111,7 @@ fn parse_route(uri: Uri) -> Route {
 
 type Msg {
   UserNavigatedTo(route: Route)
-  ProfileFetched(result: Result(Option(profile_api.Profile), String))
+  ProfileFetched(Result(option.Option(Profile), String))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -91,20 +119,21 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     UserNavigatedTo(route: route) -> {
       let model = Model(..model, route: route)
 
-      // Fetch profile if navigating to profile page
+      // Fetch profile when navigating to a profile page
       case route {
         Profile(handle: handle) -> {
+          io.println("Navigating to profile: " <> handle)
           let model = Model(..model, profile_state: Loading)
-          let effect = fetch_profile(handle)
-          #(model, effect)
+          #(model, fetch_profile(handle))
         }
         _ -> #(model, effect.none())
       }
     }
 
-    ProfileFetched(result: result) -> {
+    ProfileFetched(result) -> {
+      io.println("Profile fetched result: " <> string.inspect(result))
       let profile_state = case result {
-        Ok(Some(profile)) -> Loaded(profile)
+        Ok(Some(profile_data)) -> Loaded(profile_data)
         Ok(None) -> Failed("Profile not found")
         Error(error) -> Failed(error)
       }
@@ -115,20 +144,45 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 fn fetch_profile(handle: String) -> Effect(Msg) {
   effect.from(fn(dispatch) {
-    // TODO: Get these from environment or config
-    let config =
-      graphql.Config(
-        api_url: "https://api.slices.network",
-        slice_uri: "at://did:plc:bcgltzqazw5tb6k2g3ttenbj/network.slices.slice/3m3gc7lhwzx2z",
-        access_token: "",
-      )
+    let url = "/api/profile/" <> handle
+    io.println("Fetching profile from: " <> url)
 
-    profile_api.get_profile_by_handle(config, handle)
+    // Use native fetch with relative URL
+    fetch_url(url)
+    |> promise.map(fn(body_result) {
+      io.println("Body result: " <> string.inspect(body_result))
+      case body_result {
+        Ok(#(200, text)) -> {
+          io.println("Got 200 response, parsing JSON...")
+          json.parse(text, profile.profile_decoder())
+          |> result.map(Some)
+          |> result.map_error(fn(err) {
+            io.println("JSON parse error: " <> string.inspect(err))
+            "Failed to parse profile JSON"
+          })
+        }
+        Ok(#(404, _)) -> {
+          io.println("Got 404 response")
+          Ok(None)
+        }
+        Ok(#(status, _)) -> {
+          io.println("Got status: " <> string.inspect(status))
+          Error("API request failed")
+        }
+        Error(err) -> {
+          io.println("Fetch error: " <> err)
+          Error(err)
+        }
+      }
+    })
     |> promise.tap(fn(result) { dispatch(ProfileFetched(result)) })
 
     Nil
   })
 }
+
+@external(javascript, "./client_ffi.mjs", "fetchUrl")
+fn fetch_url(url: String) -> promise.Promise(Result(#(Int, String), String))
 
 // VIEW ------------------------------------------------------------------------
 
@@ -147,7 +201,7 @@ fn view(model: Model) -> Element(Msg) {
                 html.text("Loading profile..."),
               ]),
             ])
-          Loaded(profile: p) -> profile.view(p)
+          Loaded(p) -> profile_page.view(p)
           Failed(error: error) ->
             html.div([attribute.class("text-center py-12")], [
               html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [
