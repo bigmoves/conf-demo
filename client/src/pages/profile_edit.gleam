@@ -18,6 +18,7 @@ pub type Msg {
   AvatarFileSelected(String)
   LocationInputMsg(location_input.Msg)
   FormSubmitted
+  SaveCompleted(Result(Nil, String))
   CancelClicked
 }
 
@@ -28,6 +29,9 @@ pub type FormData {
     location_input: location_input.Model,
     interests: String,
     avatar_preview_url: Option(String),
+    success_message: Option(String),
+    error_message: Option(String),
+    is_saving: Bool,
   )
 }
 
@@ -52,6 +56,9 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         location_input: location_input.init(location_data),
         interests: interests_str,
         avatar_preview_url: p.avatar_url,
+        success_message: option.None,
+        error_message: option.None,
+        is_saving: False,
       )
     }
     option.None ->
@@ -61,6 +68,9 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         location_input: location_input.init(option.None),
         interests: "",
         avatar_preview_url: option.None,
+        success_message: option.None,
+        error_message: option.None,
+        is_saving: False,
       )
   }
 }
@@ -92,6 +102,31 @@ pub fn view(
         html.text("@" <> handle),
       ]),
     ]),
+    // Success/Error Messages
+    case form_data.success_message {
+      option.Some(msg) ->
+        html.div(
+          [
+            attribute.class(
+              "p-4 bg-green-900/20 border border-green-800 rounded-lg text-green-300 text-sm",
+            ),
+          ],
+          [html.text(msg)],
+        )
+      option.None -> element.none()
+    },
+    case form_data.error_message {
+      option.Some(msg) ->
+        html.div(
+          [
+            attribute.class(
+              "p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-300 text-sm",
+            ),
+          ],
+          [html.text(msg)],
+        )
+      option.None -> element.none()
+    },
     // Form
     html.form(
       [
@@ -204,9 +239,20 @@ pub fn view(
             button.Md,
             [html.text("Cancel")],
           ),
-          button.button([attribute.type_("submit")], button.Primary, button.Md, [
-            html.text("Save Changes"),
-          ]),
+          button.button(
+            [
+              attribute.type_("submit"),
+              attribute.disabled(form_data.is_saving),
+            ],
+            button.Primary,
+            button.Md,
+            [
+              html.text(case form_data.is_saving {
+                True -> "Saving..."
+                False -> "Save Changes"
+              }),
+            ],
+          ),
         ]),
       ],
     ),

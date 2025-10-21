@@ -24,6 +24,26 @@ export function fetchUrl(url) {
     });
 }
 
+export function postJson(url, jsonString) {
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: jsonString,
+  })
+    .then((response) => {
+      return response.text().then((text) => {
+        // Return Ok(#(status, text))
+        return new Ok([response.status, text]);
+      });
+    })
+    .catch((error) => {
+      // Return Error(message)
+      return new Error(error.message || "Network error");
+    });
+}
+
 /**
  * Search for locations using the Nominatim OpenStreetMap geocoding API
  * Returns a Promise that resolves to Result(List(NominatimResult), String)

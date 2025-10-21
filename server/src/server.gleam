@@ -1,8 +1,10 @@
 import api/graphql
+import gleam/dynamic/decode
 import gleam/erlang/process
-import gleam/http.{Get}
+import gleam/http.{Get, Post}
 import gleam/json
-import gleam/option.{type Option}
+import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string_tree
 import lustre/attribute
 import lustre/element
@@ -51,6 +53,9 @@ fn handle_request(static_directory: String, req: Request) -> Response {
   case req.method, wisp.path_segments(req) {
     // API endpoint to fetch profile data as JSON
     Get, ["api", "profile", handle] -> fetch_profile_json(handle)
+
+    // API endpoint to update profile
+    Post, ["api", "profile", handle, "update"] -> update_profile_json(req, handle)
 
     // Profile routes - prerender with data
     Get, ["profile", handle] -> serve_profile(handle)
@@ -147,4 +152,106 @@ fn serve_profile(handle: String) -> Response {
   }
 
   serve_index(profile_data)
+}
+
+fn update_profile_json(req: Request, handle: String) -> Response {
+  let config = get_graphql_config()
+
+  wisp.log_info("API: Updating profile for handle: " <> handle)
+
+  // Parse request body
+  use body <- wisp.require_string_body(req)
+
+  // Decode JSON
+  let update_result = {
+    use parsed <- result.try(
+      json.parse(body, decode.dynamic)
+      |> result.map_error(fn(_) { "Invalid JSON" }),
+    )
+
+    // Extract fields from JSON
+    let display_name = case
+      decode.run(parsed, decode.at(["display_name"], decode.optional(decode.string)))
+    {
+      Ok(val) -> val
+      Error(_) -> None
+    }
+
+    let description = case
+      decode.run(parsed, decode.at(["description"], decode.optional(decode.string)))
+    {
+      Ok(val) -> val
+      Error(_) -> None
+    }
+
+    // Decode home_town as an object with name and value fields
+    let home_town = case
+      decode.run(
+        parsed,
+        decode.at(
+          ["home_town"],
+          decode.optional({
+            use name <- decode.field("name", decode.string)
+            use value <- decode.field("value", decode.string)
+            decode.success(#(name, value))
+          }),
+        ),
+      )
+    {
+      Ok(Some(#(name, value))) -> {
+        // Re-encode as JSON object
+        let json_obj = json.object([#("name", json.string(name)), #("value", json.string(value))])
+        Some(json_obj)
+      }
+      _ -> None
+    }
+
+    let interests = case
+      decode.run(
+        parsed,
+        decode.at(["interests"], decode.optional(decode.list(decode.string))),
+      )
+    {
+      Ok(val) -> val
+      Error(_) -> None
+    }
+
+    Ok(graphql.ProfileUpdate(
+      display_name: display_name,
+      description: description,
+      home_town: home_town,
+      interests: interests,
+    ))
+  }
+
+  case update_result {
+    Ok(update) -> {
+      case graphql.update_profile(config, handle, update) {
+        Ok(_) -> {
+          wisp.log_info("API: Profile updated successfully for: " <> handle)
+          wisp.json_response(
+            json.to_string(json.object([
+              #("success", json.bool(True)),
+              #("message", json.string("Profile updated successfully")),
+            ])),
+            200,
+          )
+        }
+        Error(err) -> {
+          wisp.log_error("API: Failed to update profile: " <> err)
+          wisp.json_response(
+            json.to_string(json.object([#("error", json.string(err))])),
+            500,
+          )
+        }
+      }
+    }
+    Error(err) -> {
+      wisp.log_error("API: Failed to parse update request: " <> err)
+      wisp.json_response(
+        json.to_string(json.object([#("error", json.string(err))])),
+        400,
+      )
+    }
+  }
 }

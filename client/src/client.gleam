@@ -1,6 +1,8 @@
+import gleam/int
 import gleam/io
 import gleam/javascript/promise
 import gleam/json
+import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
@@ -279,9 +281,42 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           #(model, effect.none())
         }
         profile_edit.FormSubmitted -> {
-          // TODO: Handle form submission
-          io.println("Profile form submitted")
-          #(model, effect.none())
+          // Clear any existing messages and set saving state
+          let form_data =
+            profile_edit.FormData(
+              ..model.edit_form_data,
+              is_saving: True,
+              success_message: None,
+              error_message: None,
+            )
+          let model = Model(..model, edit_form_data: form_data)
+
+          // Get the handle from the route
+          case model.route {
+            ProfileEdit(handle: handle) -> {
+              #(model, save_profile_effect(handle, model.edit_form_data))
+            }
+            _ -> #(model, effect.none())
+          }
+        }
+        profile_edit.SaveCompleted(result) -> {
+          let form_data = case result {
+            Ok(_) ->
+              profile_edit.FormData(
+                ..model.edit_form_data,
+                is_saving: False,
+                success_message: Some("Profile updated successfully!"),
+                error_message: None,
+              )
+            Error(err) ->
+              profile_edit.FormData(
+                ..model.edit_form_data,
+                is_saving: False,
+                success_message: None,
+                error_message: Some(err),
+              )
+          }
+          #(Model(..model, edit_form_data: form_data), effect.none())
         }
         profile_edit.CancelClicked -> {
           // Navigate back to profile page
@@ -338,6 +373,101 @@ fn fetch_profile(handle: String) -> Effect(Msg) {
 
 @external(javascript, "./client_ffi.mjs", "fetchUrl")
 fn fetch_url(url: String) -> promise.Promise(Result(#(Int, String), String))
+
+@external(javascript, "./client_ffi.mjs", "postJson")
+fn post_json(
+  url: String,
+  json_body: String,
+) -> promise.Promise(Result(#(Int, String), String))
+
+fn save_profile_effect(
+  handle: String,
+  form_data: profile_edit.FormData,
+) -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    let url = "/api/profile/" <> handle <> "/update"
+
+    // Build the JSON body
+    let json_fields = []
+
+    // Add display_name if not empty
+    let json_fields = case form_data.display_name {
+      "" -> json_fields
+      name -> [#("display_name", json.string(name)), ..json_fields]
+    }
+
+    // Add description if not empty
+    let json_fields = case form_data.description {
+      "" -> json_fields
+      desc -> [#("description", json.string(desc)), ..json_fields]
+    }
+
+    // Add home_town as JSON object with name and h3_index
+    let json_fields = case form_data.location_input.selected_location {
+      Some(loc) -> {
+        let location_json =
+          json.object([
+            #("name", json.string(loc.name)),
+            #("value", json.string(loc.h3_index)),
+          ])
+        [#("home_town", location_json), ..json_fields]
+      }
+      None -> json_fields
+    }
+
+    // Add interests as array (split by comma)
+    let json_fields = case form_data.interests {
+      "" -> json_fields
+      interests_str -> {
+        let interests_list =
+          string.split(interests_str, ",")
+          |> list.map(string.trim)
+          |> list.filter(fn(s) { s != "" })
+        [#("interests", json.array(interests_list, json.string)), ..json_fields]
+      }
+    }
+
+    let json_body = json.object(json_fields) |> json.to_string
+
+    io.println("Sending profile update: " <> json_body)
+
+    post_json(url, json_body)
+    |> promise.map(fn(result) {
+      case result {
+        Ok(#(200, _text)) -> {
+          io.println("Profile saved successfully")
+          dispatch(
+            ProfileEditMsg(profile_edit.SaveCompleted(Ok(Nil))),
+          )
+        }
+        Ok(#(status, text)) -> {
+          io.println(
+            "Save failed with status "
+            <> int.to_string(status)
+            <> ": "
+            <> text,
+          )
+          dispatch(
+            ProfileEditMsg(
+              profile_edit.SaveCompleted(
+                Error("Failed to save profile (status " <> int.to_string(status) <> ")"),
+              ),
+            ),
+          )
+        }
+        Error(err) -> {
+          io.println("Save request failed: " <> err)
+          dispatch(
+            ProfileEditMsg(profile_edit.SaveCompleted(Error(err))),
+          )
+        }
+      }
+    })
+    |> promise.await(fn(_) { promise.resolve(Nil) })
+
+    Nil
+  })
+}
 
 // VIEW ------------------------------------------------------------------------
 

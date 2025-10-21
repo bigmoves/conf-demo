@@ -989,6 +989,33 @@ function reverse_and_prepend(loop$prefix, loop$suffix) {
 function reverse(list) {
   return reverse_and_prepend(list, toList([]));
 }
+function filter_loop(loop$list, loop$fun, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let fun = loop$fun;
+    let acc = loop$acc;
+    if (list instanceof Empty) {
+      return reverse(acc);
+    } else {
+      let first$1 = list.head;
+      let rest$1 = list.tail;
+      let _block;
+      let $ = fun(first$1);
+      if ($) {
+        _block = prepend(first$1, acc);
+      } else {
+        _block = acc;
+      }
+      let new_acc = _block;
+      loop$list = rest$1;
+      loop$fun = fun;
+      loop$acc = new_acc;
+    }
+  }
+}
+function filter(list, predicate) {
+  return filter_loop(list, predicate, toList([]));
+}
 function filter_map_loop(loop$list, loop$fun, loop$acc) {
   while (true) {
     let list = loop$list;
@@ -1471,6 +1498,11 @@ function join(strings, separator) {
     return join_loop(rest, separator, first$1);
   }
 }
+function trim(string) {
+  let _pipe = string;
+  let _pipe$1 = trim_start(_pipe);
+  return trim_end(_pipe$1);
+}
 function split2(x, substring) {
   if (substring === "") {
     return graphemes(x);
@@ -1794,6 +1826,12 @@ var unicode_whitespaces = [
 ].join("");
 var trim_start_regex = /* @__PURE__ */ new RegExp(`^[${unicode_whitespaces}]*`);
 var trim_end_regex = /* @__PURE__ */ new RegExp(`[${unicode_whitespaces}]*$`);
+function trim_start(string3) {
+  return string3.replace(trim_start_regex, "");
+}
+function trim_end(string3) {
+  return string3.replace(trim_end_regex, "");
+}
 function console_log(term) {
   console.log(term);
 }
@@ -2187,8 +2225,17 @@ function values2(results) {
   });
 }
 // build/dev/javascript/gleam_json/gleam_json_ffi.mjs
+function json_to_string(json) {
+  return JSON.stringify(json);
+}
+function object(entries) {
+  return Object.fromEntries(entries);
+}
 function identity2(x) {
   return x;
+}
+function array(list3) {
+  return list3.toArray();
 }
 function decode(string3) {
   try {
@@ -2304,8 +2351,25 @@ function do_parse(json, decoder) {
 function parse(json, decoder) {
   return do_parse(json, decoder);
 }
+function to_string2(json) {
+  return json_to_string(json);
+}
 function string3(input) {
   return identity2(input);
+}
+function bool(input) {
+  return identity2(input);
+}
+function object2(entries) {
+  return object(entries);
+}
+function preprocessed_array(from) {
+  return array(from);
+}
+function array2(entries, inner_type) {
+  let _pipe = entries;
+  let _pipe$1 = map(_pipe, inner_type);
+  return preprocessed_array(_pipe$1);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/uri.mjs
@@ -2359,7 +2423,7 @@ function remove_dot_segments(input) {
 function path_segments(path) {
   return remove_dot_segments(split2(path, "/"));
 }
-function to_string2(uri) {
+function to_string3(uri) {
   let _block;
   let $ = uri.fragment;
   if ($ instanceof Some) {
@@ -2673,6 +2737,13 @@ function attribute2(name, value) {
 function property2(name, value) {
   return property(name, value);
 }
+function boolean_attribute(name, value) {
+  if (value) {
+    return attribute2(name, "");
+  } else {
+    return property2(name, bool(false));
+  }
+}
 function class$(name) {
   return attribute2("class", name);
 }
@@ -2690,6 +2761,9 @@ function src(url) {
 }
 function accept(values3) {
   return attribute2("accept", join(values3, ","));
+}
+function disabled(is_disabled) {
+  return boolean_attribute("disabled", is_disabled);
 }
 function placeholder(text) {
   return attribute2("placeholder", text);
@@ -2860,14 +2934,14 @@ function do_to_string(loop$path, loop$acc) {
     }
   }
 }
-function to_string3(path) {
+function to_string4(path) {
   return do_to_string(path, toList([]));
 }
 function matches(path, candidates) {
   if (candidates instanceof Empty) {
     return false;
   } else {
-    return do_matches(to_string3(path), candidates);
+    return do_matches(to_string4(path), candidates);
   }
 }
 var separator_event = `
@@ -5448,7 +5522,7 @@ var do_init = (dispatch, options = defaults) => {
   });
 };
 var do_push = (uri) => {
-  window.history.pushState({}, "", to_string2(uri));
+  window.history.pushState({}, "", to_string3(uri));
   window.requestAnimationFrame(() => {
     if (uri.fragment[0]) {
       document.getElementById(uri.fragment[0])?.scrollIntoView();
@@ -19494,6 +19568,21 @@ function fetchUrl(url) {
     return new Error2(error.message || "Network error");
   });
 }
+function postJson(url, jsonString) {
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: jsonString
+  }).then((response) => {
+    return response.text().then((text4) => {
+      return new Ok([response.status, text4]);
+    });
+  }).catch((error) => {
+    return new Error2(error.message || "Network error");
+  });
+}
 function searchLocations(query) {
   if (!query || query.trim().length < 2) {
     return Promise.resolve(new Ok(toList2([])));
@@ -20101,16 +20190,25 @@ class LocationInputMsg extends CustomType {
 }
 class FormSubmitted extends CustomType {
 }
+class SaveCompleted extends CustomType {
+  constructor($0) {
+    super();
+    this[0] = $0;
+  }
+}
 class CancelClicked extends CustomType {
 }
 class FormData2 extends CustomType {
-  constructor(display_name, description, location_input, interests, avatar_preview_url) {
+  constructor(display_name, description, location_input, interests, avatar_preview_url, success_message, error_message, is_saving) {
     super();
     this.display_name = display_name;
     this.description = description;
     this.location_input = location_input;
     this.interests = interests;
     this.avatar_preview_url = avatar_preview_url;
+    this.success_message = success_message;
+    this.error_message = error_message;
+    this.is_saving = is_saving;
   }
 }
 function init_form_data(profile) {
@@ -20133,9 +20231,9 @@ function init_form_data(profile) {
       _block$1 = $1;
     }
     let location_data = _block$1;
-    return new FormData2(unwrap(p2.display_name, ""), unwrap(p2.description, ""), init2(location_data), interests_str, p2.avatar_url);
+    return new FormData2(unwrap(p2.display_name, ""), unwrap(p2.description, ""), init2(location_data), interests_str, p2.avatar_url, new None, new None, false);
   } else {
-    return new FormData2("", "", init2(new None), "", new None);
+    return new FormData2("", "", init2(new None), "", new None, new None, new None, false);
   }
 }
 function view5(profile, form_data, handle2, on_msg) {
@@ -20148,6 +20246,28 @@ function view5(profile, form_data, handle2, on_msg) {
       h2(toList([class$("text-3xl font-bold text-white mb-2")]), toList([text3("Profile Settings")])),
       p(toList([class$("text-zinc-500 text-sm")]), toList([text3("@" + handle2)]))
     ])),
+    (() => {
+      let $ = form_data.success_message;
+      if ($ instanceof Some) {
+        let msg = $[0];
+        return div(toList([
+          class$("p-4 bg-green-900/20 border border-green-800 rounded-lg text-green-300 text-sm")
+        ]), toList([text3(msg)]));
+      } else {
+        return none2();
+      }
+    })(),
+    (() => {
+      let $ = form_data.error_message;
+      if ($ instanceof Some) {
+        let msg = $[0];
+        return div(toList([
+          class$("p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-300 text-sm")
+        ]), toList([text3(msg)]));
+      } else {
+        return none2();
+      }
+    })(),
     form(toList([
       class$("space-y-6"),
       on_submit((_) => {
@@ -20227,7 +20347,19 @@ function view5(profile, form_data, handle2, on_msg) {
           type_("button"),
           on_click(on_msg(new CancelClicked))
         ]), new Default, new Md2, toList([text3("Cancel")])),
-        button2(toList([type_("submit")]), new Primary, new Md2, toList([text3("Save Changes")]))
+        button2(toList([
+          type_("submit"),
+          disabled(form_data.is_saving)
+        ]), new Primary, new Md2, toList([
+          text3((() => {
+            let $ = form_data.is_saving;
+            if ($) {
+              return "Saving...";
+            } else {
+              return "Save Changes";
+            }
+          })())
+        ]))
       ]))
     ]))
   ]));
@@ -20508,6 +20640,87 @@ function fetch_profile(handle2) {
     return;
   });
 }
+function save_profile_effect(handle2, form_data) {
+  return from((dispatch) => {
+    let url = "/api/profile/" + handle2 + "/update";
+    let json_fields = toList([]);
+    let _block;
+    let $ = form_data.display_name;
+    if ($ === "") {
+      _block = json_fields;
+    } else {
+      let name = $;
+      _block = prepend(["display_name", string3(name)], json_fields);
+    }
+    let json_fields$1 = _block;
+    let _block$1;
+    let $1 = form_data.description;
+    if ($1 === "") {
+      _block$1 = json_fields$1;
+    } else {
+      let desc = $1;
+      _block$1 = prepend(["description", string3(desc)], json_fields$1);
+    }
+    let json_fields$2 = _block$1;
+    let _block$2;
+    let $2 = form_data.location_input.selected_location;
+    if ($2 instanceof Some) {
+      let loc = $2[0];
+      let location_json = object2(toList([
+        ["name", string3(loc.name)],
+        ["value", string3(loc.h3_index)]
+      ]));
+      _block$2 = prepend(["home_town", location_json], json_fields$2);
+    } else {
+      _block$2 = json_fields$2;
+    }
+    let json_fields$3 = _block$2;
+    let _block$3;
+    let $3 = form_data.interests;
+    if ($3 === "") {
+      _block$3 = json_fields$3;
+    } else {
+      let interests_str = $3;
+      let _block$42;
+      let _pipe2 = split2(interests_str, ",");
+      let _pipe$12 = map(_pipe2, trim);
+      _block$42 = filter(_pipe$12, (s) => {
+        return s !== "";
+      });
+      let interests_list = _block$42;
+      _block$3 = prepend(["interests", array2(interests_list, string3)], json_fields$3);
+    }
+    let json_fields$4 = _block$3;
+    let _block$4;
+    let _pipe = object2(json_fields$4);
+    _block$4 = to_string2(_pipe);
+    let json_body = _block$4;
+    console_log("Sending profile update: " + json_body);
+    let _pipe$1 = postJson(url, json_body);
+    let _pipe$2 = map_promise(_pipe$1, (result) => {
+      if (result instanceof Ok) {
+        let $4 = result[0][0];
+        if ($4 === 200) {
+          console_log("Profile saved successfully");
+          return dispatch(new ProfileEditMsg(new SaveCompleted(new Ok(undefined))));
+        } else {
+          let status = $4;
+          let text4 = result[0][1];
+          console_log("Save failed with status " + to_string(status) + ": " + text4);
+          return dispatch(new ProfileEditMsg(new SaveCompleted(new Error2("Failed to save profile (status " + to_string(status) + ")"))));
+        }
+      } else {
+        let err = result[0];
+        console_log("Save request failed: " + err);
+        return dispatch(new ProfileEditMsg(new SaveCompleted(new Error2(err))));
+      }
+    });
+    then_await(_pipe$2, (_) => {
+      return resolve(undefined);
+    });
+    return;
+  });
+}
 function update3(model, msg) {
   if (msg instanceof UserNavigatedTo) {
     let route = msg.route;
@@ -20601,7 +20814,7 @@ function update3(model, msg) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(value3, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url);
+      _block = new FormData2(value3, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
         new Model2(model.route, model.profile_state, form_data),
@@ -20611,7 +20824,7 @@ function update3(model, msg) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, value3, _record.location_input, _record.interests, _record.avatar_preview_url);
+      _block = new FormData2(_record.display_name, value3, _record.location_input, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
         new Model2(model.route, model.profile_state, form_data),
@@ -20621,7 +20834,7 @@ function update3(model, msg) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, _record.description, _record.location_input, value3, _record.avatar_preview_url);
+      _block = new FormData2(_record.display_name, _record.description, _record.location_input, value3, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
         new Model2(model.route, model.profile_state, form_data),
@@ -20638,7 +20851,7 @@ function update3(model, msg) {
       location_effect = $[1];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, _record.description, location_model, _record.interests, _record.avatar_preview_url);
+      _block = new FormData2(_record.display_name, _record.description, location_model, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
         new Model2(model.route, model.profile_state, form_data),
@@ -20650,8 +20863,34 @@ function update3(model, msg) {
         })()
       ];
     } else if (edit_msg instanceof FormSubmitted) {
-      console_log("Profile form submitted");
-      return [model, none()];
+      let _block;
+      let _record = model.edit_form_data;
+      _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new None, new None, true);
+      let form_data = _block;
+      let model$1 = new Model2(model.route, model.profile_state, form_data);
+      let $ = model$1.route;
+      if ($ instanceof ProfileEdit) {
+        let handle2 = $.handle;
+        return [model$1, save_profile_effect(handle2, model$1.edit_form_data)];
+      } else {
+        return [model$1, none()];
+      }
+    } else if (edit_msg instanceof SaveCompleted) {
+      let result = edit_msg[0];
+      let _block;
+      if (result instanceof Ok) {
+        let _record = model.edit_form_data;
+        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new Some("Profile updated successfully!"), new None, false);
+      } else {
+        let err = result[0];
+        let _record = model.edit_form_data;
+        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new None, new Some(err), false);
+      }
+      let form_data = _block;
+      return [
+        new Model2(model.route, model.profile_state, form_data),
+        none()
+      ];
     } else {
       let $ = model.route;
       if ($ instanceof ProfileEdit) {
@@ -20736,7 +20975,7 @@ function main() {
   let app = application(init3, update3, view6);
   let $ = start3(app, "#app", undefined);
   if (!($ instanceof Ok)) {
-    throw makeError("let_assert", FILEPATH, "client", 25, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 626, end: 675, pattern_start: 637, pattern_end: 642 });
+    throw makeError("let_assert", FILEPATH, "client", 27, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 661, end: 710, pattern_start: 672, pattern_end: 677 });
   }
   return;
 }
