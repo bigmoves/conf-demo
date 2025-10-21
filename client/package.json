@@ -1,0 +1,8 @@
+{
+  "name": "lustre-fullstack-client",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "h3-js": "^4.1.0"
+  }
+}

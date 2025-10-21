@@ -13,7 +13,9 @@ import lustre/element/html
 import modem
 import pages/home
 import pages/profile as profile_page
+import pages/profile_edit
 import plinth/browser/document
+import ui/location_input
 import plinth/browser/element as plinth_element
 import shared/profile.{type Profile}
 import ui/layout
@@ -30,6 +32,7 @@ pub fn main() {
 pub type Route {
   Home
   Profile(handle: String)
+  ProfileEdit(handle: String)
   NotFound(uri: Uri)
 }
 
@@ -41,7 +44,11 @@ pub type ProfileState {
 }
 
 type Model {
-  Model(route: Route, profile_state: ProfileState)
+  Model(
+    route: Route,
+    profile_state: ProfileState,
+    edit_form_data: profile_edit.FormData,
+  )
 }
 
 fn init(_flags) -> #(Model, Effect(Msg)) {
@@ -59,18 +66,55 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
       // Use prerendered data if available, otherwise show loading
       case prerendered_profile {
         Some(profile_data) -> {
-          let model = Model(route: route, profile_state: Loaded(profile_data))
+          let model =
+            Model(
+              route: route,
+              profile_state: Loaded(profile_data),
+              edit_form_data: profile_edit.init_form_data(None),
+            )
           #(model, effect.none())
         }
         None -> {
           let model =
-            Model(route: route, profile_state: Failed("Profile not found"))
+            Model(
+              route: route,
+              profile_state: Failed("Profile not found"),
+              edit_form_data: profile_edit.init_form_data(None),
+            )
+          #(model, effect.none())
+        }
+      }
+    }
+    ProfileEdit(handle: _handle) -> {
+      // Use prerendered data if available
+      case prerendered_profile {
+        Some(profile_data) -> {
+          let model =
+            Model(
+              route: route,
+              profile_state: Loaded(profile_data),
+              edit_form_data: profile_edit.init_form_data(Some(profile_data)),
+            )
+          #(model, effect.none())
+        }
+        None -> {
+          let model =
+            Model(
+              route: route,
+              profile_state: Failed("Profile not found"),
+              edit_form_data: profile_edit.init_form_data(None),
+            )
           #(model, effect.none())
         }
       }
     }
     _ -> {
-      let model = Model(route: route, profile_state: NotAsked)
+      let model =
+        Model(
+          route: route,
+          profile_state: NotAsked,
+          edit_form_data: profile_edit.init_form_data(None),
+        )
       #(model, effect.none())
     }
   }
@@ -103,6 +147,7 @@ fn parse_route(uri: Uri) -> Route {
   case uri.path_segments(uri.path) {
     [] | [""] -> Home
     ["profile", handle] -> Profile(handle: handle)
+    ["profile", handle, "edit"] -> ProfileEdit(handle: handle)
     _ -> NotFound(uri: uri)
   }
 }
@@ -112,6 +157,7 @@ fn parse_route(uri: Uri) -> Route {
 type Msg {
   UserNavigatedTo(route: Route)
   ProfileFetched(Result(option.Option(Profile), String))
+  ProfileEditMsg(profile_edit.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -123,8 +169,56 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       case route {
         Profile(handle: handle) -> {
           io.println("Navigating to profile: " <> handle)
-          let model = Model(..model, profile_state: Loading)
-          #(model, fetch_profile(handle))
+          // Check if we have the correct profile loaded
+          case model.profile_state {
+            Loaded(p) -> {
+              // Check if loaded profile matches the requested handle
+              case p.handle {
+                option.Some(loaded_handle) if loaded_handle == handle -> {
+                  // Already have the correct profile loaded
+                  #(model, effect.none())
+                }
+                _ -> {
+                  // Profile doesn't match, fetch the correct one
+                  let model = Model(..model, profile_state: Loading)
+                  #(model, fetch_profile(handle))
+                }
+              }
+            }
+            _ -> {
+              // No profile loaded, fetch it
+              let model = Model(..model, profile_state: Loading)
+              #(model, fetch_profile(handle))
+            }
+          }
+        }
+        ProfileEdit(handle: handle) -> {
+          io.println("Navigating to profile edit: " <> handle)
+          // Check if we have the correct profile loaded
+          case model.profile_state {
+            Loaded(p) -> {
+              // Check if loaded profile matches the requested handle
+              case p.handle {
+                option.Some(loaded_handle) if loaded_handle == handle -> {
+                  let form_data = profile_edit.init_form_data(Some(p))
+                  #(
+                    Model(..model, edit_form_data: form_data),
+                    effect.none(),
+                  )
+                }
+                _ -> {
+                  // Profile doesn't match, fetch the correct one
+                  let model = Model(..model, profile_state: Loading)
+                  #(model, fetch_profile(handle))
+                }
+              }
+            }
+            _ -> {
+              // No profile loaded, fetch it
+              let model = Model(..model, profile_state: Loading)
+              #(model, fetch_profile(handle))
+            }
+          }
         }
         _ -> #(model, effect.none())
       }
@@ -137,7 +231,68 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         Ok(None) -> Failed("Profile not found")
         Error(error) -> Failed(error)
       }
-      #(Model(..model, profile_state: profile_state), effect.none())
+
+      // If we're on the edit page and profile was loaded, initialize form data
+      let edit_form_data = case model.route, profile_state {
+        ProfileEdit(_), Loaded(profile_data) ->
+          profile_edit.init_form_data(Some(profile_data))
+        _, _ -> model.edit_form_data
+      }
+
+      #(
+        Model(..model, profile_state: profile_state, edit_form_data: edit_form_data),
+        effect.none(),
+      )
+    }
+
+    ProfileEditMsg(edit_msg) -> {
+      case edit_msg {
+        profile_edit.DisplayNameUpdated(value) -> {
+          let form_data =
+            profile_edit.FormData(..model.edit_form_data, display_name: value)
+          #(Model(..model, edit_form_data: form_data), effect.none())
+        }
+        profile_edit.DescriptionUpdated(value) -> {
+          let form_data =
+            profile_edit.FormData(..model.edit_form_data, description: value)
+          #(Model(..model, edit_form_data: form_data), effect.none())
+        }
+        profile_edit.LocationInputMsg(location_msg) -> {
+          let #(location_model, location_effect) =
+            location_input.update(model.edit_form_data.location_input, location_msg)
+
+          let form_data =
+            profile_edit.FormData(..model.edit_form_data, location_input: location_model)
+
+          #(
+            Model(..model, edit_form_data: form_data),
+            location_effect |> effect.map(fn(msg) { ProfileEditMsg(profile_edit.LocationInputMsg(msg)) }),
+          )
+        }
+        profile_edit.InterestsUpdated(value) -> {
+          let form_data =
+            profile_edit.FormData(..model.edit_form_data, interests: value)
+          #(Model(..model, edit_form_data: form_data), effect.none())
+        }
+        profile_edit.AvatarFileSelected(_file_url) -> {
+          // TODO: Handle avatar file selection
+          #(model, effect.none())
+        }
+        profile_edit.FormSubmitted -> {
+          // TODO: Handle form submission
+          io.println("Profile form submitted")
+          #(model, effect.none())
+        }
+        profile_edit.CancelClicked -> {
+          // Navigate back to profile page
+          case model.route {
+            ProfileEdit(handle: handle) -> {
+              #(model, modem.push("/profile/" <> handle, None, None))
+            }
+            _ -> #(model, effect.none())
+          }
+        }
+      }
     }
   }
 }
@@ -202,6 +357,30 @@ fn view(model: Model) -> Element(Msg) {
               ]),
             ])
           Loaded(p) -> profile_page.view(p)
+          Failed(error: error) ->
+            html.div([attribute.class("text-center py-12")], [
+              html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [
+                html.text("Error"),
+              ]),
+              html.p([attribute.class("text-zinc-400")], [html.text(error)]),
+            ])
+        }
+      }
+      ProfileEdit(handle: handle) -> {
+        case model.profile_state {
+          NotAsked | Loading ->
+            html.div([attribute.class("text-center py-12")], [
+              html.p([attribute.class("text-zinc-400")], [
+                html.text("Loading profile..."),
+              ]),
+            ])
+          Loaded(p) ->
+            profile_edit.view(
+              Some(p),
+              model.edit_form_data,
+              handle,
+              ProfileEditMsg,
+            )
           Failed(error: error) ->
             html.div([attribute.class("text-center py-12")], [
               html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [

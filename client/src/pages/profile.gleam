@@ -5,7 +5,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import shared/profile.{type Profile}
 import ui/avatar
-import ui/button
 
 pub fn view(p: Profile) -> Element(msg) {
   html.div([attribute.class("space-y-8")], [
@@ -47,7 +46,19 @@ pub fn view(p: Profile) -> Element(msg) {
       ]),
 
       // Edit button
-      button.button([], button.Default, button.Md, [html.text("Edit Profile")]),
+      html.a(
+        [
+          attribute.href(
+            "/profile/"
+            <> option.unwrap(p.handle, p.did)
+            <> "/edit",
+          ),
+          attribute.class(
+            "px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer",
+          ),
+        ],
+        [html.text("Edit Profile")],
+      ),
     ]),
 
     // Profile sections

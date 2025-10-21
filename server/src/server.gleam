@@ -54,6 +54,7 @@ fn handle_request(static_directory: String, req: Request) -> Response {
 
     // Profile routes - prerender with data
     Get, ["profile", handle] -> serve_profile(handle)
+    Get, ["profile", handle, "edit"] -> serve_profile(handle)
 
     // Everything else gets our base HTML
     Get, _ -> serve_index(option.None)
