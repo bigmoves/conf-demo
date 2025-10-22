@@ -93,33 +93,6 @@ export function latLonToH3(lat, lon, resolution = 5) {
 }
 
 /**
- * Debounce helper - executes callback after delay
- * Returns a function that can be called to cancel the timeout
- */
-let debounceTimer = null;
-
-export function debounce(callback, delay) {
-  // Clear any existing timer
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-  }
-
-  // Set new timer
-  debounceTimer = setTimeout(() => {
-    callback();
-    debounceTimer = null;
-  }, delay);
-
-  // Return cancel function
-  return () => {
-    if (debounceTimer !== null) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-  };
-}
-
-/**
  * Process a file from an input element by ID and return a Promise with the file data
  * This is called from Gleam/Lustre as an effect after the change event fires
  */

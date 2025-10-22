@@ -966,6 +966,16 @@ class Eq extends CustomType {
 class Gt extends CustomType {
 }
 
+// build/dev/javascript/gleam_stdlib/gleam/int.mjs
+function max(a, b) {
+  let $ = a > b;
+  if ($) {
+    return a;
+  } else {
+    return b;
+  }
+}
+
 // build/dev/javascript/gleam_stdlib/gleam/list.mjs
 class Ascending extends CustomType {
 }
@@ -4393,7 +4403,7 @@ function diff(events, old, new$6) {
 
 // build/dev/javascript/lustre/lustre/vdom/reconciler.ffi.mjs
 var setTimeout2 = globalThis.setTimeout;
-var clearTimeout2 = globalThis.clearTimeout;
+var clearTimeout = globalThis.clearTimeout;
 var createElementNS = (ns, name2) => document2().createElementNS(ns, name2);
 var createTextNode = (data) => document2().createTextNode(data);
 var createDocumentFragment = () => document2().createDocumentFragment();
@@ -4580,7 +4590,7 @@ class Reconciler {
     const { debouncers, children } = node;
     for (const { timeout } of debouncers.values()) {
       if (timeout) {
-        clearTimeout2(timeout);
+        clearTimeout(timeout);
       }
     }
     debouncers.clear();
@@ -4699,7 +4709,7 @@ class Reconciler {
     } else if (debounceOrThrottle) {
       const { timeout } = debounceOrThrottle;
       if (timeout) {
-        clearTimeout2(timeout);
+        clearTimeout(timeout);
       }
       map7.delete(name2);
     }
@@ -4737,7 +4747,7 @@ class Reconciler {
     }
     const debounce = debouncers.get(type);
     if (debounce) {
-      clearTimeout2(debounce.timeout);
+      clearTimeout(debounce.timeout);
       debounce.timeout = setTimeout2(() => {
         if (event3 === throttles.get(type)?.lastEvent)
           return;
@@ -19678,22 +19688,6 @@ function searchLocations(query) {
 function latLonToH3(lat, lon, resolution = 5) {
   return latLngToCell(lat, lon, resolution);
 }
-var debounceTimer = null;
-function debounce(callback, delay) {
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-  }
-  debounceTimer = setTimeout(() => {
-    callback();
-    debounceTimer = null;
-  }, delay);
-  return () => {
-    if (debounceTimer !== null) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-  };
-}
 async function processFileFromInputId(inputId) {
   console.log("processFileFromInputId called for:", inputId);
   const inputElement = document.getElementById(inputId);
@@ -20001,6 +19995,13 @@ function prevent_default(event4) {
     return event4;
   }
 }
+function debounce(event4, delay) {
+  if (event4 instanceof Event2) {
+    return new Event2(event4.kind, event4.name, event4.handler, event4.include, event4.prevent_default, event4.stop_propagation, event4.immediate, max(0, delay), event4.throttle);
+  } else {
+    return event4;
+  }
+}
 function on_click(msg) {
   return on("click", success(msg));
 }
@@ -20134,27 +20135,24 @@ function init2(initial_value) {
     }
   })(), initial_value, toList([]), false, false);
 }
-function debounced_search_effect(query) {
+function search_effect(query) {
   return from((dispatch) => {
-    debounce(() => {
-      let _pipe = searchLocations(query);
-      let _pipe$1 = map_promise(_pipe, (result) => {
-        if (result instanceof Ok) {
-          let dynamic_list = result[0];
-          let decoded_results = filter_map(dynamic_list, (dyn) => {
-            return run(dyn, nominatim_result_decoder());
-          });
-          return dispatch(new GotSearchResults(new Ok(decoded_results)));
-        } else {
-          let err = result[0];
-          return dispatch(new GotSearchResults(new Error2(err)));
-        }
-      });
-      then_await(_pipe$1, (_) => {
-        return resolve(undefined);
-      });
-      return;
-    }, 300);
+    let _pipe = searchLocations(query);
+    let _pipe$1 = map_promise(_pipe, (result) => {
+      if (result instanceof Ok) {
+        let dynamic_list = result[0];
+        let decoded_results = filter_map(dynamic_list, (dyn) => {
+          return run(dyn, nominatim_result_decoder());
+        });
+        return dispatch(new GotSearchResults(new Ok(decoded_results)));
+      } else {
+        let err = result[0];
+        return dispatch(new GotSearchResults(new Error2(err)));
+      }
+    });
+    then_await(_pipe$1, (_) => {
+      return resolve(undefined);
+    });
     return;
   });
 }
@@ -20200,7 +20198,7 @@ function update2(model, msg) {
     let $ = string_length(query) >= 2;
     if ($) {
       let model$2 = new Model(model$1.input_value, model$1.selected_location, model$1.suggestions, true, true);
-      return [model$2, debounced_search_effect(query)];
+      return [model$2, search_effect(query)];
     } else {
       return [
         new Model(model$1.input_value, new None, toList([]), model$1.is_loading, false),
@@ -20238,7 +20236,7 @@ function update2(model, msg) {
     let $ = string_length(model.input_value) >= 2;
     if ($) {
       let model$1 = new Model(model.input_value, model.selected_location, model.suggestions, true, true);
-      return [model$1, debounced_search_effect(model$1.input_value)];
+      return [model$1, search_effect(model$1.input_value)];
     } else {
       return [model, none()];
     }
@@ -20269,9 +20267,12 @@ function input_element(value3, placeholder2, _) {
     value(value3),
     placeholder(placeholder2),
     class$("w-full px-3 py-2 pr-10 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700"),
-    on_input((var0) => {
-      return new UserTypedQuery(var0);
-    }),
+    (() => {
+      let _pipe = on_input((var0) => {
+        return new UserTypedQuery(var0);
+      });
+      return debounce(_pipe, 300);
+    })(),
     on_focus(new UserFocusedInput),
     on_blur(new UserBlurredInput)
   ]));

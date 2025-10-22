@@ -50,7 +50,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       case string.length(query) >= 2 {
         True -> {
           let model = Model(..model, is_loading: True, show_dropdown: True)
-          #(model, debounced_search_effect(query))
+          #(model, search_effect(query))
         }
         False -> {
           #(
@@ -103,7 +103,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       case string.length(model.input_value) >= 2 {
         True -> {
           let model = Model(..model, is_loading: True, show_dropdown: True)
-          #(model, debounced_search_effect(model.input_value))
+          #(model, search_effect(model.input_value))
         }
         False -> #(model, effect.none())
       }
@@ -137,38 +137,26 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
-// FFI function for debouncing
-@external(javascript, "../client_ffi.mjs", "debounce")
-fn debounce(callback: fn() -> Nil, delay: Int) -> fn() -> Nil
-
-fn debounced_search_effect(query: String) -> Effect(Msg) {
+fn search_effect(query: String) -> Effect(Msg) {
   effect.from(fn(dispatch) {
-    // Debounce the search by 300ms
-    debounce(
-      fn() {
-        location.search_locations(query)
-        |> promise.map(fn(result) {
-          case result {
-            Ok(dynamic_list) -> {
-              // Decode each dynamic result using filter_map which expects Result
-              let decoded_results =
-                list.filter_map(dynamic_list, fn(dyn) {
-                  decode.run(dyn, location.nominatim_result_decoder())
-                })
+    location.search_locations(query)
+    |> promise.map(fn(result) {
+      case result {
+        Ok(dynamic_list) -> {
+          // Decode each dynamic result using filter_map which expects Result
+          let decoded_results =
+            list.filter_map(dynamic_list, fn(dyn) {
+              decode.run(dyn, location.nominatim_result_decoder())
+            })
 
-              dispatch(GotSearchResults(Ok(decoded_results)))
-            }
-            Error(err) -> {
-              dispatch(GotSearchResults(Error(err)))
-            }
-          }
-        })
-        |> promise.await(fn(_) { promise.resolve(Nil) })
-
-        Nil
-      },
-      300,
-    )
+          dispatch(GotSearchResults(Ok(decoded_results)))
+        }
+        Error(err) -> {
+          dispatch(GotSearchResults(Error(err)))
+        }
+      }
+    })
+    |> promise.await(fn(_) { promise.resolve(Nil) })
 
     Nil
   })
@@ -221,7 +209,7 @@ fn input_element(
     attribute.class(
       "w-full px-3 py-2 pr-10 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700",
     ),
-    event.on_input(UserTypedQuery),
+    event.on_input(UserTypedQuery) |> event.debounce(300),
     event.on_focus(UserFocusedInput),
     event.on_blur(UserBlurredInput),
   ])
