@@ -20564,10 +20564,16 @@ function view_nav(user) {
         href("/profile/" + u.handle),
         class$("px-2 py-1 text-zinc-400 hover:text-zinc-200 transition-colors")
       ]), toList([text3(display_name)])),
-      a(toList([
-        href("/logout"),
-        class$("px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors")
-      ]), toList([text3("Sign Out")]))
+      form(toList([
+        action("/logout"),
+        method("post"),
+        class$("inline")
+      ]), toList([
+        button(toList([
+          type_("submit"),
+          class$("px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer")
+        ]), toList([text3("Sign Out")]))
+      ]))
     ]));
   } else {
     return a(toList([

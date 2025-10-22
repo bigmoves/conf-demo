@@ -60,12 +60,21 @@ fn view_nav(user: Option(User)) -> Element(msg) {
           ],
           [html.text(display_name)],
         ),
-        html.a(
+        html.form(
           [
-            attribute.href("/logout"),
-            attribute.class("px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors"),
+            attribute.action("/logout"),
+            attribute.method("post"),
+            attribute.class("inline"),
           ],
-          [html.text("Sign Out")],
+          [
+            html.button(
+              [
+                attribute.type_("submit"),
+                attribute.class("px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"),
+              ],
+              [html.text("Sign Out")],
+            ),
+          ],
         ),
       ])
     }
