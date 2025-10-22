@@ -110,8 +110,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
 
     UserBlurredInput -> {
-      // Delay hiding dropdown to allow click on suggestion
-      #(model, effect.none())
+      #(Model(..model, show_dropdown: False), effect.none())
     }
 
     GotSearchResults(result) -> {
@@ -250,6 +249,7 @@ fn dropdown_element(
           attribute.class(
             "absolute z-50 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto",
           ),
+          attribute.attribute("onmousedown", "event.preventDefault()"),
         ],
         list.map(suggestions, suggestion_item),
       )
@@ -267,8 +267,8 @@ fn suggestion_item(result: location.NominatimResult) -> Element(Msg) {
       event.on_click(UserClickedSuggestion(result)),
     ],
     [
-      html.div([attribute.class("flex items-start gap-2")], [
-        html.div([attribute.class("text-zinc-500 mt-1 flex-shrink-0")], [
+      html.div([attribute.class("flex items-center gap-2")], [
+        html.div([attribute.class("text-zinc-500 flex-shrink-0")], [
           html.text("📍"),
         ]),
         html.div([attribute.class("text-sm text-zinc-300")], [

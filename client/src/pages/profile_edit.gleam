@@ -25,7 +25,7 @@ pub type Msg {
   AvatarFileProcessed(AvatarFileData)
   LocationInputMsg(location_input.Msg)
   FormSubmitted
-  SaveCompleted(Result(Nil, String))
+  SaveCompleted(Result(Profile, String))
   CancelClicked
 }
 

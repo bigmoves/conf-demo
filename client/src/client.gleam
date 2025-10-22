@@ -235,26 +235,42 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         }
         ProfileEdit(handle: handle) -> {
           io.println("Navigating to profile edit: " <> handle)
-          // Check if we have the correct profile loaded
-          case model.profile_state {
-            Loaded(p) -> {
-              // Check if loaded profile matches the requested handle
-              case p.handle {
-                option.Some(loaded_handle) if loaded_handle == handle -> {
-                  let form_data = profile_edit.init_form_data(Some(p))
-                  #(Model(..model, edit_form_data: form_data), effect.none())
+
+          // Check if current user is authorized to edit this profile
+          let is_authorized = case model.current_user {
+            option.Some(user) if user.handle == handle -> True
+            _ -> False
+          }
+
+          case is_authorized {
+            False -> {
+              // Redirect to profile view if not authorized
+              io.println("Unauthorized edit attempt, redirecting to profile view")
+              #(model, modem.push("/profile/" <> handle, option.None, option.None))
+            }
+            True -> {
+              // Check if we have the correct profile loaded
+              case model.profile_state {
+                Loaded(p) -> {
+                  // Check if loaded profile matches the requested handle
+                  case p.handle {
+                    option.Some(loaded_handle) if loaded_handle == handle -> {
+                      let form_data = profile_edit.init_form_data(Some(p))
+                      #(Model(..model, edit_form_data: form_data), effect.none())
+                    }
+                    _ -> {
+                      // Profile doesn't match, fetch the correct one
+                      let model = Model(..model, profile_state: Loading)
+                      #(model, fetch_profile(handle))
+                    }
+                  }
                 }
                 _ -> {
-                  // Profile doesn't match, fetch the correct one
+                  // No profile loaded, fetch it
                   let model = Model(..model, profile_state: Loading)
                   #(model, fetch_profile(handle))
                 }
               }
-            }
-            _ -> {
-              // No profile loaded, fetch it
-              let model = Model(..model, profile_state: Loading)
-              #(model, fetch_profile(handle))
             }
           }
         }
@@ -345,23 +361,38 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           }
         }
         profile_edit.SaveCompleted(result) -> {
-          let form_data = case result {
-            Ok(_) ->
-              profile_edit.FormData(
-                ..model.edit_form_data,
-                is_saving: False,
-                success_message: Some("Profile updated successfully!"),
-                error_message: None,
+          case result {
+            Ok(updated_profile) -> {
+              // Update form data with success message
+              let form_data =
+                profile_edit.FormData(
+                  ..model.edit_form_data,
+                  is_saving: False,
+                  success_message: Some("Profile updated successfully!"),
+                  error_message: None,
+                )
+
+              // Update profile_state with the profile returned from the server
+              #(
+                Model(
+                  ..model,
+                  edit_form_data: form_data,
+                  profile_state: Loaded(updated_profile),
+                ),
+                effect.none(),
               )
-            Error(err) ->
-              profile_edit.FormData(
-                ..model.edit_form_data,
-                is_saving: False,
-                success_message: None,
-                error_message: Some(err),
-              )
+            }
+            Error(err) -> {
+              let form_data =
+                profile_edit.FormData(
+                  ..model.edit_form_data,
+                  is_saving: False,
+                  success_message: None,
+                  error_message: Some(err),
+                )
+              #(Model(..model, edit_form_data: form_data), effect.none())
+            }
           }
-          #(Model(..model, edit_form_data: form_data), effect.none())
         }
         profile_edit.CancelClicked -> {
           // Navigate back to profile page
@@ -549,11 +580,27 @@ fn save_profile_effect(
     post_json(url, json_body)
     |> promise.map(fn(result) {
       case result {
-        Ok(#(200, _text)) -> {
-          io.println("Profile saved successfully")
-          dispatch(
-            ProfileEditMsg(profile_edit.SaveCompleted(Ok(Nil))),
-          )
+        Ok(#(200, text)) -> {
+          io.println("Profile saved successfully, parsing response...")
+          // Parse the returned profile
+          case json.parse(text, profile.profile_decoder()) {
+            Ok(updated_profile) -> {
+              io.println("Profile parsed successfully")
+              dispatch(
+                ProfileEditMsg(profile_edit.SaveCompleted(Ok(updated_profile))),
+              )
+            }
+            Error(_) -> {
+              io.println("Failed to parse profile response")
+              dispatch(
+                ProfileEditMsg(
+                  profile_edit.SaveCompleted(
+                    Error("Failed to parse updated profile"),
+                  ),
+                ),
+              )
+            }
+          }
         }
         Ok(#(status, text)) -> {
           io.println(
@@ -599,7 +646,13 @@ fn view(model: Model) -> Element(Msg) {
                 html.text("Loading profile..."),
               ]),
             ])
-          Loaded(p) -> profile_page.view(p)
+          Loaded(p) -> {
+            let current_user_handle = case model.current_user {
+              option.Some(user) -> option.Some(user.handle)
+              option.None -> option.None
+            }
+            profile_page.view(p, current_user_handle)
+          }
           Failed(error: error) ->
             html.div([attribute.class("text-center py-12")], [
               html.h2([attribute.class("text-2xl font-bold text-white mb-4")], [

@@ -5617,8 +5617,16 @@ class HomeTown extends CustomType {
     this.h3_index = h3_index;
   }
 }
+class AvatarBlob extends CustomType {
+  constructor(ref, mime_type, size2) {
+    super();
+    this.ref = ref;
+    this.mime_type = mime_type;
+    this.size = size2;
+  }
+}
 class Profile extends CustomType {
-  constructor(id2, uri, cid, did, handle2, display_name, description, avatar_url, home_town, interests, indexed_at) {
+  constructor(id2, uri, cid, did, handle2, display_name, description, avatar_url, avatar_blob, home_town, interests, indexed_at) {
     super();
     this.id = id2;
     this.uri = uri;
@@ -5628,6 +5636,7 @@ class Profile extends CustomType {
     this.display_name = display_name;
     this.description = description;
     this.avatar_url = avatar_url;
+    this.avatar_blob = avatar_blob;
     this.home_town = home_town;
     this.interests = interests;
     this.indexed_at = indexed_at;
@@ -5640,6 +5649,15 @@ function home_town_decoder() {
     });
   });
 }
+function avatar_blob_decoder() {
+  return field("ref", string2, (ref) => {
+    return field("mime_type", string2, (mime_type) => {
+      return field("size", int2, (size2) => {
+        return success(new AvatarBlob(ref, mime_type, size2));
+      });
+    });
+  });
+}
 function profile_decoder() {
   return field("id", string2, (id2) => {
     return field("uri", string2, (uri) => {
@@ -5649,10 +5667,12 @@ function profile_decoder() {
             return field("display_name", optional(string2), (display_name) => {
               return field("description", optional(string2), (description) => {
                 return field("avatar_url", optional(string2), (avatar_url) => {
-                  return field("home_town", optional(home_town_decoder()), (home_town) => {
-                    return field("interests", optional(list2(string2)), (interests) => {
-                      return field("indexed_at", string2, (indexed_at) => {
-                        return success(new Profile(id2, uri, cid, did, handle2, display_name, description, avatar_url, home_town, interests, indexed_at));
+                  return field("avatar_blob", optional(avatar_blob_decoder()), (avatar_blob) => {
+                    return field("home_town", optional(home_town_decoder()), (home_town) => {
+                      return field("interests", optional(list2(string2)), (interests) => {
+                        return field("indexed_at", string2, (indexed_at) => {
+                          return success(new Profile(id2, uri, cid, did, handle2, display_name, description, avatar_url, avatar_blob, home_town, interests, indexed_at));
+                        });
                       });
                     });
                   });
@@ -19864,7 +19884,7 @@ function avatar(src2, alt2, size2) {
 }
 
 // build/dev/javascript/client/pages/profile.mjs
-function view4(p2) {
+function view4(p2, current_user_handle) {
   return div(toList([class$("space-y-8")]), toList([
     div(toList([class$("flex items-start gap-6")]), toList([
       avatar(p2.avatar_url, unwrap(p2.display_name, p2.did), new Xl),
@@ -19890,10 +19910,23 @@ function view4(p2) {
           }
         })()
       ])),
-      a(toList([
-        href("/profile/" + unwrap(p2.handle, p2.did) + "/edit"),
-        class$("px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer")
-      ]), toList([text3("Edit Profile")]))
+      (() => {
+        let $ = p2.handle;
+        if ($ instanceof Some && current_user_handle instanceof Some) {
+          let profile_handle = $[0];
+          let user_handle = current_user_handle[0];
+          if (profile_handle === user_handle) {
+            return a(toList([
+              href("/profile/" + profile_handle + "/edit"),
+              class$("px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer")
+            ]), toList([text3("Edit Profile")]));
+          } else {
+            return none2();
+          }
+        } else {
+          return none2();
+        }
+      })()
     ])),
     div(toList([class$("space-y-6 pt-6 border-t border-zinc-800")]), toList([
       (() => {
@@ -20210,7 +20243,10 @@ function update2(model, msg) {
       return [model, none()];
     }
   } else if (msg instanceof UserBlurredInput) {
-    return [model, none()];
+    return [
+      new Model(model.input_value, model.selected_location, model.suggestions, model.is_loading, false),
+      none()
+    ];
   } else {
     let result = msg[0];
     if (result instanceof Ok) {
@@ -20251,8 +20287,8 @@ function suggestion_item(result) {
     class$("w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-b-0"),
     on_click(new UserClickedSuggestion(result))
   ]), toList([
-    div(toList([class$("flex items-start gap-2")]), toList([
-      div(toList([class$("text-zinc-500 mt-1 flex-shrink-0")]), toList([text3("\uD83D\uDCCD")])),
+    div(toList([class$("flex items-center gap-2")]), toList([
+      div(toList([class$("text-zinc-500 flex-shrink-0")]), toList([text3("\uD83D\uDCCD")])),
       div(toList([class$("text-sm text-zinc-300")]), toList([text3(format_location_name(result))]))
     ]))
   ]));
@@ -20261,7 +20297,8 @@ function dropdown_element(show, suggestions) {
   let $ = show && !isEqual(suggestions, toList([]));
   if ($) {
     return div(toList([
-      class$("absolute z-50 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto")
+      class$("absolute z-50 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto"),
+      attribute2("onmousedown", "event.preventDefault()")
     ]), map(suggestions, suggestion_item));
   } else {
     return none2();
@@ -20933,8 +20970,17 @@ function save_profile_effect(handle2, form_data) {
       if (result instanceof Ok) {
         let $5 = result[0][0];
         if ($5 === 200) {
-          console_log("Profile saved successfully");
-          return dispatch(new ProfileEditMsg(new SaveCompleted(new Ok(undefined))));
+          let text4 = result[0][1];
+          console_log("Profile saved successfully, parsing response...");
+          let $6 = parse(text4, profile_decoder());
+          if ($6 instanceof Ok) {
+            let updated_profile = $6[0];
+            console_log("Profile parsed successfully");
+            return dispatch(new ProfileEditMsg(new SaveCompleted(new Ok(updated_profile))));
+          } else {
+            console_log("Failed to parse profile response");
+            return dispatch(new ProfileEditMsg(new SaveCompleted(new Error2("Failed to parse updated profile"))));
+          }
         } else {
           let status = $5;
           let text4 = result[0][1];
@@ -20983,18 +21029,36 @@ function update3(model, msg) {
     } else if (route instanceof ProfileEdit) {
       let handle2 = route.handle;
       console_log("Navigating to profile edit: " + handle2);
-      let $ = model$1.profile_state;
-      if ($ instanceof Loaded) {
-        let p2 = $[0];
-        let $1 = p2.handle;
-        if ($1 instanceof Some) {
-          let loaded_handle = $1[0];
-          if (loaded_handle === handle2) {
-            let form_data = init_form_data(new Some(p2));
-            return [
-              new Model2(model$1.route, model$1.profile_state, form_data, model$1.current_user),
-              none()
-            ];
+      let _block;
+      let $ = model$1.current_user;
+      if ($ instanceof Some) {
+        let user = $[0];
+        if (user.handle === handle2) {
+          _block = true;
+        } else {
+          _block = false;
+        }
+      } else {
+        _block = false;
+      }
+      let is_authorized = _block;
+      if (is_authorized) {
+        let $1 = model$1.profile_state;
+        if ($1 instanceof Loaded) {
+          let p2 = $1[0];
+          let $2 = p2.handle;
+          if ($2 instanceof Some) {
+            let loaded_handle = $2[0];
+            if (loaded_handle === handle2) {
+              let form_data = init_form_data(new Some(p2));
+              return [
+                new Model2(model$1.route, model$1.profile_state, form_data, model$1.current_user),
+                none()
+              ];
+            } else {
+              let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
+              return [model$2, fetch_profile(handle2)];
+            }
           } else {
             let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
             return [model$2, fetch_profile(handle2)];
@@ -21004,8 +21068,11 @@ function update3(model, msg) {
           return [model$2, fetch_profile(handle2)];
         }
       } else {
-        let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
-        return [model$2, fetch_profile(handle2)];
+        console_log("Unauthorized edit attempt, redirecting to profile view");
+        return [
+          model$1,
+          push("/profile/" + handle2, new None, new None)
+        ];
       }
     } else {
       return [model$1, none()];
@@ -21119,20 +21186,27 @@ function update3(model, msg) {
       }
     } else if (edit_msg instanceof SaveCompleted) {
       let result = edit_msg[0];
-      let _block;
       if (result instanceof Ok) {
+        let updated_profile = result[0];
+        let _block;
         let _record = model.edit_form_data;
         _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, new Some("Profile updated successfully!"), new None, false);
+        let form_data = _block;
+        return [
+          new Model2(model.route, new Loaded(updated_profile), form_data, model.current_user),
+          none()
+        ];
       } else {
         let err = result[0];
+        let _block;
         let _record = model.edit_form_data;
         _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, new None, new Some(err), false);
+        let form_data = _block;
+        return [
+          new Model2(model.route, model.profile_state, form_data, model.current_user),
+          none()
+        ];
       }
-      let form_data = _block;
-      return [
-        new Model2(model.route, model.profile_state, form_data, model.current_user),
-        none()
-      ];
     } else {
       let $ = model.route;
       if ($ instanceof ProfileEdit) {
@@ -21187,7 +21261,16 @@ function view7(model) {
           ]));
         } else if ($1 instanceof Loaded) {
           let p2 = $1[0];
-          return view4(p2);
+          let _block;
+          let $2 = model.current_user;
+          if ($2 instanceof Some) {
+            let user = $2[0];
+            _block = new Some(user.handle);
+          } else {
+            _block = $2;
+          }
+          let current_user_handle = _block;
+          return view4(p2, current_user_handle);
         } else {
           let error = $1.error;
           return div(toList([class$("text-center py-12")]), toList([

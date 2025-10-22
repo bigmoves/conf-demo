@@ -84,6 +84,112 @@ pub fn get_profile_by_handle(
   }
 }
 
+/// Decode a profile from GraphQL format (with camelCase fields)
+/// The data should be positioned at the profile node level
+fn decode_graphql_profile(data: decode.Dynamic) -> decode.Decoder(Profile) {
+  use id <- decode.field("id", decode.string)
+  use uri <- decode.field("uri", decode.string)
+  use cid <- decode.field("cid", decode.string)
+  use did <- decode.field("did", decode.string)
+
+  // For optional fields, extract them manually
+  let handle = case
+    decode.run(data, decode.at(["actorHandle"], decode.optional(decode.string)))
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let display_name = case
+    decode.run(data, decode.at(["displayName"], decode.optional(decode.string)))
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let description = case
+    decode.run(data, decode.at(["description"], decode.optional(decode.string)))
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let avatar_url = case
+    decode.run(
+      data,
+      decode.at(["avatar", "url"], decode.optional(decode.string)),
+    )
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let avatar_blob = case
+    decode.run(
+      data,
+      decode.at(
+        ["avatar"],
+        decode.optional({
+          use ref <- decode.field("ref", decode.string)
+          use mime_type <- decode.field("mimeType", decode.string)
+          use size <- decode.field("size", decode.int)
+          decode.success(profile.AvatarBlob(
+            ref: ref,
+            mime_type: mime_type,
+            size: size,
+          ))
+        }),
+      ),
+    )
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let home_town = case
+    decode.run(
+      data,
+      decode.at(
+        ["homeTown"],
+        decode.optional({
+          use name <- decode.field("name", decode.string)
+          use value <- decode.field("value", decode.string)
+          decode.success(profile.HomeTown(name: name, h3_index: value))
+        }),
+      ),
+    )
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  let interests = case
+    decode.run(
+      data,
+      decode.at(["interests"], decode.optional(decode.list(decode.string))),
+    )
+  {
+    Ok(val) -> val
+    Error(_) -> None
+  }
+
+  use indexed_at <- decode.field("indexedAt", decode.string)
+  decode.success(profile.Profile(
+    id:,
+    uri:,
+    cid:,
+    did:,
+    handle:,
+    display_name:,
+    description:,
+    avatar_url:,
+    avatar_blob:,
+    home_town:,
+    interests:,
+    indexed_at:,
+  ))
+}
+
 /// Parse the GraphQL response and extract profile data
 fn parse_profile_response(
   response_body: String,
@@ -372,12 +478,27 @@ pub fn update_profile(
   config: Config,
   _handle: String,
   update: ProfileUpdate,
-) -> Result(Nil, String) {
+) -> Result(profile.Profile, String) {
   let mutation =
     "
     mutation UpdateProfile($rkey: String!, $input: OrgAtmosphereconfProfileInput!) {
       updateOrgAtmosphereconfProfile(rkey: $rkey, input: $input) {
         id
+        uri
+        cid
+        did
+        actorHandle
+        displayName
+        description
+        avatar {
+          ref
+          mimeType
+          size
+          url
+        }
+        homeTown
+        interests
+        indexedAt
       }
     }
   "
@@ -441,9 +562,33 @@ pub fn update_profile(
     |> result.map_error(fn(_) { "HTTP request failed" }),
   )
 
-  // Check status code
+  // Check status code and parse response
   case resp.status {
-    200 -> Ok(Nil)
+    200 -> {
+      // Parse JSON and extract the profile node
+      use data <- result.try(
+        json.parse(resp.body, decode.dynamic)
+        |> result.map_error(fn(_) { "Failed to parse JSON response" }),
+      )
+
+      // Extract the profile node from data.updateOrgAtmosphereconfProfile
+      use profile_node <- result.try(
+        decode.run(
+          data,
+          decode.at(["data", "updateOrgAtmosphereconfProfile"], decode.dynamic),
+        )
+        |> result.map_error(fn(errors) {
+          "Failed to extract updateOrgAtmosphereconfProfile: "
+          <> string.inspect(errors)
+        }),
+      )
+
+      // Decode the profile using the reusable decoder
+      decode.run(profile_node, decode_graphql_profile(profile_node))
+      |> result.map_error(fn(errors) {
+        "Failed to decode profile: " <> string.inspect(errors)
+      })
+    }
     _ ->
       Error(
         "API returned status "

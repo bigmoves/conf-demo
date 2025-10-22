@@ -1,12 +1,12 @@
 import gleam/list
-import gleam/option
+import gleam/option.{type Option}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import shared/profile.{type Profile}
 import ui/avatar
 
-pub fn view(p: Profile) -> Element(msg) {
+pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
   html.div([attribute.class("space-y-8")], [
     // Profile header
     html.div([attribute.class("flex items-start gap-6")], [
@@ -45,18 +45,22 @@ pub fn view(p: Profile) -> Element(msg) {
         },
       ]),
 
-      // Edit button
-      html.a(
-        [
-          attribute.href(
-            "/profile/" <> option.unwrap(p.handle, p.did) <> "/edit",
-          ),
-          attribute.class(
-            "px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer",
-          ),
-        ],
-        [html.text("Edit Profile")],
-      ),
+      // Edit button - only show if current user owns this profile
+      case p.handle, current_user_handle {
+        option.Some(profile_handle), option.Some(user_handle)
+          if profile_handle == user_handle
+        ->
+          html.a(
+            [
+              attribute.href("/profile/" <> profile_handle <> "/edit"),
+              attribute.class(
+                "px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer",
+              ),
+            ],
+            [html.text("Edit Profile")],
+          )
+        _, _ -> element.none()
+      },
     ]),
 
     // Profile sections

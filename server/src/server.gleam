@@ -106,6 +106,46 @@ fn app_middleware(
   next(req)
 }
 
+fn require_profile_owner(
+  req: Request,
+  db: sqlight.Connection,
+  handle: String,
+  next: fn(String) -> Response,
+) -> Response {
+  case session.get_current_user(req, db) {
+    Error(_) -> {
+      wisp.log_warning("Unauthorized attempt to access profile: " <> handle)
+      wisp.json_response(
+        json.to_string(
+          json.object([#("error", json.string("Not authenticated"))]),
+        ),
+        401,
+      )
+    }
+    Ok(#(_did, current_handle, access_token)) -> {
+      case current_handle == handle {
+        False -> {
+          wisp.log_warning(
+            "User "
+            <> current_handle
+            <> " attempted to access profile of "
+            <> handle,
+          )
+          wisp.json_response(
+            json.to_string(
+              json.object([
+                #("error", json.string("You can only edit your own profile")),
+              ]),
+            ),
+            403,
+          )
+        }
+        True -> next(access_token)
+      }
+    }
+  }
+}
+
 fn handle_request(
   static_directory: String,
   db: sqlight.Connection,
@@ -314,11 +354,7 @@ fn update_profile_json(
   handle: String,
   db: sqlight.Connection,
 ) -> Response {
-  // Get access token from session if available
-  let access_token = case session.get_current_user(req, db) {
-    Ok(#(_, _, token)) -> token
-    Error(_) -> ""
-  }
+  use access_token <- require_profile_owner(req, db, handle)
 
   let config = get_graphql_config(access_token)
 
@@ -466,15 +502,10 @@ fn update_profile_json(
       let final_update = graphql.ProfileUpdate(..update, avatar: avatar_blob)
 
       case graphql.update_profile(config, handle, final_update) {
-        Ok(_) -> {
+        Ok(updated_profile) -> {
           wisp.log_info("API: Profile updated successfully for: " <> handle)
           wisp.json_response(
-            json.to_string(
-              json.object([
-                #("success", json.bool(True)),
-                #("message", json.string("Profile updated successfully")),
-              ]),
-            ),
+            json.to_string(profile.profile_to_json(updated_profile)),
             200,
           )
         }
