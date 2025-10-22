@@ -118,3 +118,52 @@ export function debounce(callback, delay) {
     }
   };
 }
+
+/**
+ * Process a file from an input element by ID and return a Promise with the file data
+ * This is called from Gleam/Lustre as an effect after the change event fires
+ */
+export async function processFileFromInputId(inputId) {
+  console.log("processFileFromInputId called for:", inputId);
+
+  const inputElement = document.getElementById(inputId);
+  if (!inputElement) {
+    console.error("Input element not found:", inputId);
+    return new Error("Input element not found");
+  }
+
+  const file = inputElement.files?.[0];
+  if (!file) {
+    console.log("No file selected");
+    return new Error("No file selected");
+  }
+
+  if (!file.type.startsWith("image/")) {
+    console.log("File is not an image:", file.type);
+    return new Error("File is not an image");
+  }
+
+  try {
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    console.log("Created preview URL:", previewUrl);
+
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const binary = Array.from(bytes).map((b) => String.fromCharCode(b)).join("");
+    const base64Data = btoa(binary);
+
+    console.log("Converted to base64, length:", base64Data.length);
+
+    // Return Ok with file data
+    return new Ok({
+      preview_url: previewUrl,
+      base64_data: base64Data,
+      mime_type: file.type,
+    });
+  } catch (error) {
+    console.error("Failed to process file:", error);
+    return new Error(error.message || "Failed to process file");
+  }
+}

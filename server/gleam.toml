@@ -23,6 +23,11 @@ mist = ">= 5.0.3 and < 6.0.0"
 lustre = ">= 5.3.5 and < 6.0.0"
 storail = ">= 3.0.1 and < 4.0.0"
 gleam_httpc = ">= 5.0.0 and < 6.0.0"
+glow_auth = ">= 1.0.1 and < 2.0.0"
+gleam_crypto = ">= 1.5.1 and < 2.0.0"
+sqlight = ">= 1.0.2 and < 2.0.0"
+envoy = ">= 1.0.2 and < 2.0.0"
+dotenv_gleam = ">= 2.0.1 and < 3.0.0"
 
 [erlang]
 extra_applications = ["inets", "ssl"]

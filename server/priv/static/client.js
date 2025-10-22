@@ -1560,6 +1560,9 @@ function success(data) {
     return [data, toList([])];
   });
 }
+function decode_dynamic(data) {
+  return [data, toList([])];
+}
 function map2(decoder, transformer) {
   return new Decoder((d) => {
     let $ = decoder.function(d);
@@ -1624,6 +1627,7 @@ function optional(inner) {
     }
   });
 }
+var dynamic = /* @__PURE__ */ new Decoder(decode_dynamic);
 function run_dynamic_function(data, name, f) {
   let $ = f(data);
   if ($ instanceof Ok) {
@@ -1737,6 +1741,20 @@ function subfield(field_path, field_decoder, next) {
     out$1 = $1[0];
     errors2 = $1[1];
     return [out$1, append(errors1, errors2)];
+  });
+}
+function at(path, inner) {
+  return new Decoder((data) => {
+    return index3(path, toList([]), inner.function, data, (data2, position) => {
+      let $ = inner.function(data2);
+      let default$;
+      default$ = $[0];
+      let _pipe = [
+        default$,
+        toList([new DecodeError("Field", "Nothing", toList([]))])
+      ];
+      return push_path(_pipe, reverse(position));
+    });
   });
 }
 function field(field_name, field_decoder, next) {
@@ -2753,17 +2771,32 @@ function id(value) {
 function href(url) {
   return attribute2("href", url);
 }
+function target(value) {
+  return attribute2("target", value);
+}
 function alt(text) {
   return attribute2("alt", text);
 }
 function src(url) {
   return attribute2("src", url);
 }
+function action(url) {
+  return attribute2("action", url);
+}
+function method(http_method) {
+  return attribute2("method", http_method);
+}
 function accept(values3) {
   return attribute2("accept", join(values3, ","));
 }
 function disabled(is_disabled) {
   return boolean_attribute("disabled", is_disabled);
+}
+function for$(id2) {
+  return attribute2("for", id2);
+}
+function name(element_name) {
+  return attribute2("name", element_name);
 }
 function placeholder(text) {
   return attribute2("placeholder", text);
@@ -3129,27 +3162,27 @@ function new$3() {
 function tick(events) {
   return new Events(events.handlers, events.next_dispatched_paths, empty_list);
 }
-function do_remove_event(handlers, path, name) {
-  return remove(handlers, event2(path, name));
+function do_remove_event(handlers, path, name2) {
+  return remove(handlers, event2(path, name2));
 }
-function remove_event(events, path, name) {
-  let handlers = do_remove_event(events.handlers, path, name);
+function remove_event(events, path, name2) {
+  let handlers = do_remove_event(events.handlers, path, name2);
   return new Events(handlers, events.dispatched_paths, events.next_dispatched_paths);
 }
 function remove_attributes(handlers, path, attributes) {
   return fold(attributes, handlers, (events, attribute3) => {
     if (attribute3 instanceof Event2) {
-      let name = attribute3.name;
-      return do_remove_event(events, path, name);
+      let name2 = attribute3.name;
+      return do_remove_event(events, path, name2);
     } else {
       return events;
     }
   });
 }
-function handle(events, path, name, event3) {
+function handle(events, path, name2, event3) {
   let next_dispatched_paths = prepend(path, events.next_dispatched_paths);
   let events$1 = new Events(events.handlers, events.dispatched_paths, next_dispatched_paths);
-  let $ = get(events$1.handlers, path + separator_event + name);
+  let $ = get(events$1.handlers, path + separator_event + name2);
   if ($ instanceof Ok) {
     let handler = $[0];
     return [events$1, run(event3, handler)];
@@ -3160,21 +3193,21 @@ function handle(events, path, name, event3) {
 function has_dispatched_events(events, path) {
   return matches(path, events.dispatched_paths);
 }
-function do_add_event(handlers, mapper, path, name, handler) {
-  return insert2(handlers, event2(path, name), map2(handler, (handler2) => {
+function do_add_event(handlers, mapper, path, name2, handler) {
+  return insert2(handlers, event2(path, name2), map2(handler, (handler2) => {
     return new Handler(handler2.prevent_default, handler2.stop_propagation, identity3(mapper)(handler2.message));
   }));
 }
-function add_event(events, mapper, path, name, handler) {
-  let handlers = do_add_event(events.handlers, mapper, path, name, handler);
+function add_event(events, mapper, path, name2, handler) {
+  let handlers = do_add_event(events.handlers, mapper, path, name2, handler);
   return new Events(handlers, events.dispatched_paths, events.next_dispatched_paths);
 }
 function add_attributes(handlers, mapper, path, attributes) {
   return fold(attributes, handlers, (events, attribute3) => {
     if (attribute3 instanceof Event2) {
-      let name = attribute3.name;
+      let name2 = attribute3.name;
       let handler = attribute3.handler;
-      return do_add_event(events, mapper, path, name, handler);
+      return do_add_event(events, mapper, path, name2, handler);
     } else {
       return events;
     }
@@ -3484,10 +3517,10 @@ class Reconcile extends CustomType {
   }
 }
 class Emit extends CustomType {
-  constructor(kind, name, data) {
+  constructor(kind, name2, data) {
     super();
     this.kind = kind;
-    this.name = name;
+    this.name = name2;
     this.data = data;
   }
 }
@@ -3507,27 +3540,27 @@ class Batch extends CustomType {
   }
 }
 class AttributeChanged extends CustomType {
-  constructor(kind, name, value2) {
+  constructor(kind, name2, value2) {
     super();
     this.kind = kind;
-    this.name = name;
+    this.name = name2;
     this.value = value2;
   }
 }
 class PropertyChanged extends CustomType {
-  constructor(kind, name, value2) {
+  constructor(kind, name2, value2) {
     super();
     this.kind = kind;
-    this.name = name;
+    this.name = name2;
     this.value = value2;
   }
 }
 class EventFired extends CustomType {
-  constructor(kind, path, name, event3) {
+  constructor(kind, path, name2, event3) {
     super();
     this.kind = kind;
     this.path = path;
-    this.name = name;
+    this.name = name2;
     this.event = event3;
   }
 }
@@ -3548,8 +3581,8 @@ function reconcile(patch) {
   return new Reconcile(reconcile_kind, patch);
 }
 var emit_kind = 2;
-function emit(name, data) {
-  return new Emit(emit_kind, name, data);
+function emit(name2, data) {
+  return new Emit(emit_kind, name2, data);
 }
 var provide_kind = 3;
 function provide(key, value2) {
@@ -3601,10 +3634,10 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
         if ($ instanceof Event2) {
           let next = $;
           let new$1 = new$6.tail;
-          let name = $.name;
+          let name2 = $.name;
           let handler = $.handler;
           let added$1 = prepend(next, added);
-          let events$1 = add_event(events, mapper, path, name, handler);
+          let events$1 = add_event(events, mapper, path, name2, handler);
           loop$controlled = controlled;
           loop$path = path;
           loop$mapper = mapper;
@@ -3632,9 +3665,9 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
       if ($ instanceof Event2) {
         let prev = $;
         let old$1 = old.tail;
-        let name = $.name;
+        let name2 = $.name;
         let removed$1 = prepend(prev, removed);
-        let events$1 = remove_event(events, path, name);
+        let events$1 = remove_event(events, path, name2);
         loop$controlled = controlled;
         loop$path = path;
         loop$mapper = mapper;
@@ -3664,9 +3697,9 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
       let $ = compare3(prev, next);
       if ($ instanceof Lt) {
         if (prev instanceof Event2) {
-          let name = prev.name;
+          let name2 = prev.name;
           let removed$1 = prepend(prev, removed);
-          let events$1 = remove_event(events, path, name);
+          let events$1 = remove_event(events, path, name2);
           loop$controlled = controlled;
           loop$path = path;
           loop$mapper = mapper;
@@ -3717,11 +3750,11 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
             loop$added = added$1;
             loop$removed = removed;
           } else if (next instanceof Event2) {
-            let name = next.name;
+            let name2 = next.name;
             let handler = next.handler;
             let added$1 = prepend(next, added);
             let removed$1 = prepend(prev, removed);
-            let events$1 = add_event(events, mapper, path, name, handler);
+            let events$1 = add_event(events, mapper, path, name2, handler);
             loop$controlled = controlled;
             loop$path = path;
             loop$mapper = mapper;
@@ -3776,11 +3809,11 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
             loop$added = added$1;
             loop$removed = removed;
           } else if (next instanceof Event2) {
-            let name = next.name;
+            let name2 = next.name;
             let handler = next.handler;
             let added$1 = prepend(next, added);
             let removed$1 = prepend(prev, removed);
-            let events$1 = add_event(events, mapper, path, name, handler);
+            let events$1 = add_event(events, mapper, path, name2, handler);
             loop$controlled = controlled;
             loop$path = path;
             loop$mapper = mapper;
@@ -3802,7 +3835,7 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
             loop$removed = removed$1;
           }
         } else if (next instanceof Event2) {
-          let name = next.name;
+          let name2 = next.name;
           let handler = next.handler;
           let has_changes = prev.prevent_default.kind !== next.prevent_default.kind || prev.stop_propagation.kind !== next.stop_propagation.kind || prev.immediate !== next.immediate || prev.debounce !== next.debounce || prev.throttle !== next.throttle;
           let _block;
@@ -3812,7 +3845,7 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
             _block = added;
           }
           let added$1 = _block;
-          let events$1 = add_event(events, mapper, path, name, handler);
+          let events$1 = add_event(events, mapper, path, name2, handler);
           loop$controlled = controlled;
           loop$path = path;
           loop$mapper = mapper;
@@ -3822,10 +3855,10 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
           loop$added = added$1;
           loop$removed = removed;
         } else {
-          let name = prev.name;
+          let name2 = prev.name;
           let added$1 = prepend(next, added);
           let removed$1 = prepend(prev, removed);
-          let events$1 = remove_event(events, path, name);
+          let events$1 = remove_event(events, path, name2);
           loop$controlled = controlled;
           loop$path = path;
           loop$mapper = mapper;
@@ -3836,10 +3869,10 @@ function diff_attributes(loop$controlled, loop$path, loop$mapper, loop$events, l
           loop$removed = removed$1;
         }
       } else if (next instanceof Event2) {
-        let name = next.name;
+        let name2 = next.name;
         let handler = next.handler;
         let added$1 = prepend(next, added);
-        let events$1 = add_event(events, mapper, path, name, handler);
+        let events$1 = add_event(events, mapper, path, name2, handler);
         loop$controlled = controlled;
         loop$path = path;
         loop$mapper = mapper;
@@ -4361,17 +4394,17 @@ function diff(events, old, new$6) {
 // build/dev/javascript/lustre/lustre/vdom/reconciler.ffi.mjs
 var setTimeout2 = globalThis.setTimeout;
 var clearTimeout2 = globalThis.clearTimeout;
-var createElementNS = (ns, name) => document2().createElementNS(ns, name);
+var createElementNS = (ns, name2) => document2().createElementNS(ns, name2);
 var createTextNode = (data) => document2().createTextNode(data);
 var createDocumentFragment = () => document2().createDocumentFragment();
 var insertBefore = (parent, node, reference) => parent.insertBefore(node, reference);
 var moveBefore = SUPPORTS_MOVE_BEFORE ? (parent, node, reference) => parent.moveBefore(node, reference) : insertBefore;
 var removeChild = (parent, child) => parent.removeChild(child);
-var getAttribute = (node, name) => node.getAttribute(name);
-var setAttribute = (node, name, value2) => node.setAttribute(name, value2);
-var removeAttribute = (node, name) => node.removeAttribute(name);
-var addEventListener = (node, name, handler, options) => node.addEventListener(name, handler, options);
-var removeEventListener = (node, name, handler) => node.removeEventListener(name, handler);
+var getAttribute = (node, name2) => node.getAttribute(name2);
+var setAttribute = (node, name2, value2) => node.setAttribute(name2, value2);
+var removeAttribute = (node, name2) => node.removeAttribute(name2);
+var addEventListener = (node, name2, handler, options) => node.addEventListener(name2, handler, options);
+var removeEventListener = (node, name2, handler) => node.removeEventListener(name2, handler);
 var setInnerHtml = (node, innerHtml) => node.innerHTML = innerHtml;
 var setData = (node, data) => node.data = data;
 var meta = Symbol("lustre");
@@ -4554,14 +4587,14 @@ class Reconciler {
     iterate(children, (child) => this.#removeDebouncers(child));
   }
   #update({ node, handlers, throttles, debouncers }, { added, removed }) {
-    iterate(removed, ({ name }) => {
-      if (handlers.delete(name)) {
-        removeEventListener(node, name, handleEvent);
-        this.#updateDebounceThrottle(throttles, name, 0);
-        this.#updateDebounceThrottle(debouncers, name, 0);
+    iterate(removed, ({ name: name2 }) => {
+      if (handlers.delete(name2)) {
+        removeEventListener(node, name2, handleEvent);
+        this.#updateDebounceThrottle(throttles, name2, 0);
+        this.#updateDebounceThrottle(debouncers, name2, 0);
       } else {
-        removeAttribute(node, name);
-        SYNCED_ATTRIBUTES[name]?.removed?.(node, name);
+        removeAttribute(node, name2);
+        SYNCED_ATTRIBUTES[name2]?.removed?.(node, name2);
       }
     });
     iterate(added, (attribute3) => this.#createAttribute(node, attribute3));
@@ -4620,7 +4653,7 @@ class Reconciler {
     const { debouncers, handlers, throttles } = node[meta];
     const {
       kind,
-      name,
+      name: name2,
       value: value2,
       prevent_default: prevent,
       debounce: debounceDelay,
@@ -4629,46 +4662,46 @@ class Reconciler {
     switch (kind) {
       case attribute_kind: {
         const valueOrDefault = value2 ?? "";
-        if (name === "virtual:defaultValue") {
+        if (name2 === "virtual:defaultValue") {
           node.defaultValue = valueOrDefault;
           return;
         }
-        if (valueOrDefault !== getAttribute(node, name)) {
-          setAttribute(node, name, valueOrDefault);
+        if (valueOrDefault !== getAttribute(node, name2)) {
+          setAttribute(node, name2, valueOrDefault);
         }
-        SYNCED_ATTRIBUTES[name]?.added?.(node, valueOrDefault);
+        SYNCED_ATTRIBUTES[name2]?.added?.(node, valueOrDefault);
         break;
       }
       case property_kind:
-        node[name] = value2;
+        node[name2] = value2;
         break;
       case event_kind: {
-        if (handlers.has(name)) {
-          removeEventListener(node, name, handleEvent);
+        if (handlers.has(name2)) {
+          removeEventListener(node, name2, handleEvent);
         }
         const passive = prevent.kind === never_kind;
-        addEventListener(node, name, handleEvent, { passive });
-        this.#updateDebounceThrottle(throttles, name, throttleDelay);
-        this.#updateDebounceThrottle(debouncers, name, debounceDelay);
-        handlers.set(name, (event3) => this.#handleEvent(attribute3, event3));
+        addEventListener(node, name2, handleEvent, { passive });
+        this.#updateDebounceThrottle(throttles, name2, throttleDelay);
+        this.#updateDebounceThrottle(debouncers, name2, debounceDelay);
+        handlers.set(name2, (event3) => this.#handleEvent(attribute3, event3));
         break;
       }
     }
   }
-  #updateDebounceThrottle(map7, name, delay) {
-    const debounceOrThrottle = map7.get(name);
+  #updateDebounceThrottle(map7, name2, delay) {
+    const debounceOrThrottle = map7.get(name2);
     if (delay > 0) {
       if (debounceOrThrottle) {
         debounceOrThrottle.delay = delay;
       } else {
-        map7.set(name, { delay });
+        map7.set(name2, { delay });
       }
     } else if (debounceOrThrottle) {
       const { timeout } = debounceOrThrottle;
       if (timeout) {
         clearTimeout2(timeout);
       }
-      map7.delete(name);
+      map7.delete(name2);
     }
   }
   #handleEvent(attribute3, event3) {
@@ -4753,20 +4786,20 @@ var createServerEvent = (event3, include = []) => {
   }
   return data;
 };
-var syncedBooleanAttribute = (name) => {
+var syncedBooleanAttribute = (name2) => {
   return {
     added(node) {
-      node[name] = true;
+      node[name2] = true;
     },
     removed(node) {
-      node[name] = false;
+      node[name2] = false;
     }
   };
 };
-var syncedAttribute = (name) => {
+var syncedAttribute = (name2) => {
   return {
     added(node, value2) {
-      node[name] = value2;
+      node[name2] = value2;
     }
   };
 };
@@ -4969,9 +5002,9 @@ var virtualiseAttributes = (node) => {
   return attributes;
 };
 var virtualiseAttribute = (attr) => {
-  const name = attr.localName;
+  const name2 = attr.localName;
   const value2 = attr.value;
-  return attribute2(name, value2);
+  return attribute2(name2, value2);
 };
 
 // build/dev/javascript/lustre/lustre/runtime/client/runtime.ffi.mjs
@@ -4999,8 +5032,8 @@ class Runtime {
         event3.callback(context.value);
       }
     });
-    this.#reconciler = new Reconciler(this.root, (event3, path, name) => {
-      const [events, result] = handle(this.#events, path, name, event3);
+    this.#reconciler = new Reconciler(this.root, (event3, path, name2) => {
+      const [events, result] = handle(this.#events, path, name2, event3);
       this.#events = events;
       if (result.isOk()) {
         const handler = result[0];
@@ -5028,8 +5061,8 @@ class Runtime {
     }
   }
   emit(event3, data) {
-    const target = this.root.host ?? this.root;
-    target.dispatchEvent(new CustomEvent(event3, {
+    const target2 = this.root.host ?? this.root;
+    target2.dispatchEvent(new CustomEvent(event3, {
       detail: data,
       bubbles: true,
       composed: true
@@ -5163,9 +5196,9 @@ class EffectDispatchedMessage extends CustomType {
   }
 }
 class EffectEmitEvent extends CustomType {
-  constructor(name, data) {
+  constructor(name2, data) {
     super();
-    this.name = name;
+    this.name = name2;
     this.data = data;
   }
 }
@@ -5292,8 +5325,8 @@ class Runtime2 {
         return;
       }
       case EffectEmitEvent: {
-        const { name, data } = msg;
-        this.broadcast(emit(name, data));
+        const { name: name2, data } = msg;
+        this.broadcast(emit(name2, data));
         return;
       }
       case EffectProvidedValue: {
@@ -5341,8 +5374,8 @@ class Runtime2 {
         return this.#view(this.#model);
       }
       case AttributeChanged: {
-        const { name, value: value2 } = msg;
-        const result = this.#handle_attribute_change(name, value2);
+        const { name: name2, value: value2 } = msg;
+        const result = this.#handle_attribute_change(name2, value2);
         if (result instanceof Error2) {
           return this.#vdom;
         } else {
@@ -5353,8 +5386,8 @@ class Runtime2 {
         }
       }
       case PropertyChanged: {
-        const { name, value: value2 } = msg;
-        const result = this.#handle_properties_change(name, value2);
+        const { name: name2, value: value2 } = msg;
+        const result = this.#handle_properties_change(name2, value2);
         if (result instanceof Error2) {
           return this.#vdom;
         } else {
@@ -5365,8 +5398,8 @@ class Runtime2 {
         }
       }
       case EventFired: {
-        const { path, name, event: event3 } = msg;
-        const [events, result] = handle(this.#events, path, name, event3);
+        const { path, name: name2, event: event3 } = msg;
+        const [events, result] = handle(this.#events, path, name2, event3);
         this.#events = events;
         if (result instanceof Error2) {
           return this.#vdom;
@@ -5394,8 +5427,8 @@ class Runtime2 {
       }
     }
   }
-  #handle_attribute_change(name, value2) {
-    const result = map_get(this.#config.attributes, name);
+  #handle_attribute_change(name2, value2) {
+    const result = map_get(this.#config.attributes, name2);
     switch (result.constructor) {
       case Ok:
         return result[0](value2);
@@ -5403,8 +5436,8 @@ class Runtime2 {
         return new Error2(undefined);
     }
   }
-  #handle_properties_change(name, value2) {
-    const result = map_get(this.#config.properties, name);
+  #handle_properties_change(name2, value2) {
+    const result = map_get(this.#config.properties, name2);
     switch (result.constructor) {
       case Ok:
         return result[0](value2);
@@ -5414,7 +5447,7 @@ class Runtime2 {
   }
   #handle_effect(effect) {
     const dispatch = (message) => this.send(new EffectDispatchedMessage(message));
-    const emit2 = (name, data) => this.send(new EffectEmitEvent(name, data));
+    const emit2 = (name2, data) => this.send(new EffectEmitEvent(name2, data));
     const select = () => {
       return;
     };
@@ -5577,6 +5610,13 @@ function innerText(element4) {
   return element4.innerText;
 }
 // build/dev/javascript/shared/shared/profile.mjs
+class HomeTown extends CustomType {
+  constructor(name2, h3_index) {
+    super();
+    this.name = name2;
+    this.h3_index = h3_index;
+  }
+}
 class Profile extends CustomType {
   constructor(id2, uri, cid, did, handle2, display_name, description, avatar_url, home_town, interests, indexed_at) {
     super();
@@ -5593,6 +5633,13 @@ class Profile extends CustomType {
     this.indexed_at = indexed_at;
   }
 }
+function home_town_decoder() {
+  return field("name", string2, (name2) => {
+    return field("value", string2, (h3_index) => {
+      return success(new HomeTown(name2, h3_index));
+    });
+  });
+}
 function profile_decoder() {
   return field("id", string2, (id2) => {
     return field("uri", string2, (uri) => {
@@ -5602,7 +5649,7 @@ function profile_decoder() {
             return field("display_name", optional(string2), (display_name) => {
               return field("description", optional(string2), (description) => {
                 return field("avatar_url", optional(string2), (avatar_url) => {
-                  return field("home_town", optional(string2), (home_town) => {
+                  return field("home_town", optional(home_town_decoder()), (home_town) => {
                     return field("interests", optional(list2(string2)), (interests) => {
                       return field("indexed_at", string2, (indexed_at) => {
                         return success(new Profile(id2, uri, cid, did, handle2, display_name, description, avatar_url, home_town, interests, indexed_at));
@@ -19627,6 +19674,40 @@ function debounce(callback, delay) {
     }
   };
 }
+async function processFileFromInputId(inputId) {
+  console.log("processFileFromInputId called for:", inputId);
+  const inputElement = document.getElementById(inputId);
+  if (!inputElement) {
+    console.error("Input element not found:", inputId);
+    return new Error2("Input element not found");
+  }
+  const file = inputElement.files?.[0];
+  if (!file) {
+    console.log("No file selected");
+    return new Error2("No file selected");
+  }
+  if (!file.type.startsWith("image/")) {
+    console.log("File is not an image:", file.type);
+    return new Error2("File is not an image");
+  }
+  try {
+    const previewUrl = URL.createObjectURL(file);
+    console.log("Created preview URL:", previewUrl);
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const binary = Array.from(bytes).map((b) => String.fromCharCode(b)).join("");
+    const base64Data = btoa(binary);
+    console.log("Converted to base64, length:", base64Data.length);
+    return new Ok({
+      preview_url: previewUrl,
+      base64_data: base64Data,
+      mime_type: file.type
+    });
+  } catch (error) {
+    console.error("Failed to process file:", error);
+    return new Error2(error.message || "Failed to process file");
+  }
+}
 
 // build/dev/javascript/client/pages/home.mjs
 function view2() {
@@ -19637,10 +19718,97 @@ function view2() {
   ]));
 }
 
-// build/dev/javascript/client/ui/avatar.mjs
+// build/dev/javascript/client/ui/button.mjs
+class Default extends CustomType {
+}
+class Primary extends CustomType {
+}
+class Link extends CustomType {
+}
 class Sm extends CustomType {
 }
 class Md extends CustomType {
+}
+function button2(attributes, variant, size2, children) {
+  let _block;
+  if (size2 instanceof Sm) {
+    _block = "px-3 py-1.5 text-xs";
+  } else if (size2 instanceof Md) {
+    _block = "px-4 py-2 text-sm";
+  } else {
+    _block = "px-6 py-3 text-base";
+  }
+  let size_classes = _block;
+  let _block$1;
+  if (variant instanceof Default) {
+    _block$1 = "text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded";
+  } else if (variant instanceof Primary) {
+    _block$1 = "text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded";
+  } else if (variant instanceof Link) {
+    _block$1 = "text-zinc-500 hover:text-zinc-300 px-2 py-1";
+  } else {
+    _block$1 = "bg-red-900 text-red-100 border border-red-800 hover:bg-red-800 hover:border-red-700 rounded";
+  }
+  let variant_classes = _block$1;
+  let base_classes = size_classes + " " + variant_classes + " transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+  return button(prepend(class$(base_classes), attributes), children);
+}
+
+// build/dev/javascript/client/ui/input.mjs
+function input2(attributes) {
+  let classes = "w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed";
+  return input(prepend(class$(classes), attributes));
+}
+
+// build/dev/javascript/client/pages/login.mjs
+function view3() {
+  return div(toList([class$("flex items-center justify-center min-h-[60vh]")]), toList([
+    div(toList([class$("w-full max-w-[300px] space-y-4")]), toList([
+      form(toList([
+        method("POST"),
+        action("/oauth/authorize"),
+        class$("space-y-4")
+      ]), toList([
+        div(toList([]), toList([
+          label(toList([
+            for$("loginHint"),
+            class$("block text-sm font-medium text-zinc-400 mb-2")
+          ]), toList([text3("Handle or PDS Host")])),
+          input2(toList([
+            id("loginHint"),
+            name("loginHint"),
+            type_("text"),
+            placeholder("user.bsky.social"),
+            attribute2("required", "true")
+          ]))
+        ])),
+        button2(toList([
+          type_("submit"),
+          class$("w-full justify-center")
+        ]), new Primary, new Md, toList([text3("Sign In")]))
+      ])),
+      div(toList([class$("text-xs text-zinc-500")]), toList([
+        p(toList([]), toList([
+          text3("Examples: user.bsky.social, pds.example.com")
+        ])),
+        p(toList([class$("mt-2")]), toList([
+          text3("Don't have an account? "),
+          a(toList([
+            href("https://bsky.app"),
+            target("_blank"),
+            attribute2("rel", "noopener noreferrer"),
+            class$("text-zinc-400 hover:text-zinc-300 underline")
+          ]), toList([text3("Create one on Bluesky")]))
+        ]))
+      ]))
+    ]))
+  ]));
+}
+
+// build/dev/javascript/client/ui/avatar.mjs
+class Sm2 extends CustomType {
+}
+class Md2 extends CustomType {
 }
 class Lg extends CustomType {
 }
@@ -19648,9 +19816,9 @@ class Xl extends CustomType {
 }
 function avatar(src2, alt2, size2) {
   let _block;
-  if (size2 instanceof Sm) {
+  if (size2 instanceof Sm2) {
     _block = "w-8 h-8";
-  } else if (size2 instanceof Md) {
+  } else if (size2 instanceof Md2) {
     _block = "w-12 h-12";
   } else if (size2 instanceof Lg) {
     _block = "w-16 h-16";
@@ -19696,7 +19864,7 @@ function avatar(src2, alt2, size2) {
 }
 
 // build/dev/javascript/client/pages/profile.mjs
-function view3(p2) {
+function view4(p2) {
   return div(toList([class$("space-y-8")]), toList([
     div(toList([class$("flex items-start gap-6")]), toList([
       avatar(p2.avatar_url, unwrap(p2.display_name, p2.did), new Xl),
@@ -19716,7 +19884,7 @@ function view3(p2) {
           let $ = p2.home_town;
           if ($ instanceof Some) {
             let town = $[0];
-            return p(toList([class$("text-zinc-400 text-sm")]), toList([text3("\uD83D\uDCCD " + town)]));
+            return p(toList([class$("text-zinc-400 text-sm")]), toList([text3("\uD83D\uDCCD " + town.name)]));
           } else {
             return div(toList([]), toList([]));
           }
@@ -19769,29 +19937,29 @@ function view3(p2) {
 }
 
 // build/dev/javascript/lustre/lustre/event.mjs
-function is_immediate_event(name) {
-  if (name === "input") {
+function is_immediate_event(name2) {
+  if (name2 === "input") {
     return true;
-  } else if (name === "change") {
+  } else if (name2 === "change") {
     return true;
-  } else if (name === "focus") {
+  } else if (name2 === "focus") {
     return true;
-  } else if (name === "focusin") {
+  } else if (name2 === "focusin") {
     return true;
-  } else if (name === "focusout") {
+  } else if (name2 === "focusout") {
     return true;
-  } else if (name === "blur") {
+  } else if (name2 === "blur") {
     return true;
-  } else if (name === "select") {
+  } else if (name2 === "select") {
     return true;
   } else {
     return false;
   }
 }
-function on(name, handler) {
-  return event(name, map2(handler, (msg) => {
+function on(name2, handler) {
+  return event(name2, map2(handler, (msg) => {
     return new Handler(false, false, msg);
-  }), empty_list, never, never, is_immediate_event(name), 0, 0);
+  }), empty_list, never, never, is_immediate_event(name2), 0, 0);
 }
 function prevent_default(event4) {
   if (event4 instanceof Event2) {
@@ -19839,48 +20007,6 @@ function on_blur(msg) {
   return on("blur", success(msg));
 }
 
-// build/dev/javascript/client/ui/button.mjs
-class Default extends CustomType {
-}
-class Primary extends CustomType {
-}
-class Link extends CustomType {
-}
-class Sm2 extends CustomType {
-}
-class Md2 extends CustomType {
-}
-function button2(attributes, variant, size2, children) {
-  let _block;
-  if (size2 instanceof Sm2) {
-    _block = "px-3 py-1.5 text-xs";
-  } else if (size2 instanceof Md2) {
-    _block = "px-4 py-2 text-sm";
-  } else {
-    _block = "px-6 py-3 text-base";
-  }
-  let size_classes = _block;
-  let _block$1;
-  if (variant instanceof Default) {
-    _block$1 = "text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded";
-  } else if (variant instanceof Primary) {
-    _block$1 = "text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded";
-  } else if (variant instanceof Link) {
-    _block$1 = "text-zinc-500 hover:text-zinc-300 px-2 py-1";
-  } else {
-    _block$1 = "bg-red-900 text-red-100 border border-red-800 hover:bg-red-800 hover:border-red-700 rounded";
-  }
-  let variant_classes = _block$1;
-  let base_classes = size_classes + " " + variant_classes + " transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
-  return button(prepend(class$(base_classes), attributes), children);
-}
-
-// build/dev/javascript/client/ui/input.mjs
-function input2(attributes) {
-  let classes = "w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed";
-  return input(prepend(class$(classes), attributes));
-}
-
 // build/dev/javascript/client/utils/location.mjs
 class NominatimResult extends CustomType {
   constructor(display_name, lat, lon, place_id, address) {
@@ -19901,9 +20027,9 @@ class NominatimAddress extends CustomType {
   }
 }
 class LocationData extends CustomType {
-  constructor(name, lat, lon, h3_index) {
+  constructor(name2, lat, lon, h3_index) {
     super();
-    this.name = name;
+    this.name = name2;
     this.lat = lat;
     this.lon = lon;
     this.h3_index = h3_index;
@@ -20141,7 +20267,7 @@ function dropdown_element(show, suggestions) {
     return none2();
   }
 }
-function view4(model, placeholder2) {
+function view5(model, placeholder2) {
   return div(toList([class$("relative")]), toList([
     div(toList([class$("relative")]), toList([
       input_element(model.input_value, placeholder2, model.is_loading),
@@ -20176,7 +20302,13 @@ class InterestsUpdated extends CustomType {
     this[0] = $0;
   }
 }
-class AvatarFileSelected extends CustomType {
+class AvatarFileChanged extends CustomType {
+  constructor($0) {
+    super();
+    this[0] = $0;
+  }
+}
+class AvatarFileProcessed extends CustomType {
   constructor($0) {
     super();
     this[0] = $0;
@@ -20199,13 +20331,14 @@ class SaveCompleted extends CustomType {
 class CancelClicked extends CustomType {
 }
 class FormData2 extends CustomType {
-  constructor(display_name, description, location_input, interests, avatar_preview_url, success_message, error_message, is_saving) {
+  constructor(display_name, description, location_input, interests, avatar_preview_url, avatar_file_data, success_message, error_message, is_saving) {
     super();
     this.display_name = display_name;
     this.description = description;
     this.location_input = location_input;
     this.interests = interests;
     this.avatar_preview_url = avatar_preview_url;
+    this.avatar_file_data = avatar_file_data;
     this.success_message = success_message;
     this.error_message = error_message;
     this.is_saving = is_saving;
@@ -20226,17 +20359,18 @@ function init_form_data(profile) {
     let _block$1;
     let $1 = p2.home_town;
     if ($1 instanceof Some) {
-      _block$1 = new None;
+      let town = $1[0];
+      _block$1 = new Some(new LocationData(town.name, 0, 0, town.h3_index));
     } else {
       _block$1 = $1;
     }
     let location_data = _block$1;
-    return new FormData2(unwrap(p2.display_name, ""), unwrap(p2.description, ""), init2(location_data), interests_str, p2.avatar_url, new None, new None, false);
+    return new FormData2(unwrap(p2.display_name, ""), unwrap(p2.description, ""), init2(location_data), interests_str, p2.avatar_url, new None, new None, new None, false);
   } else {
-    return new FormData2("", "", init2(new None), "", new None, new None, new None, false);
+    return new FormData2("", "", init2(new None), "", new None, new None, new None, new None, false);
   }
 }
-function view5(profile, form_data, handle2, on_msg) {
+function view6(profile, form_data, handle2, on_msg) {
   return div(toList([class$("space-y-8")]), toList([
     div(toList([class$("border-b border-zinc-800 pb-6")]), toList([
       button(toList([
@@ -20294,7 +20428,10 @@ function view5(profile, form_data, handle2, on_msg) {
               type_("file"),
               id("avatar-upload"),
               accept(toList(["image/*"])),
-              class$("hidden")
+              class$("hidden"),
+              on("change", map2(dynamic, (_) => {
+                return on_msg(new AvatarFileChanged(toList([])));
+              }))
             ]))
           ]))
         ])),
@@ -20321,7 +20458,7 @@ function view5(profile, form_data, handle2, on_msg) {
         div(toList([class$("space-y-2")]), toList([
           label(toList([class$("text-sm font-medium text-white")]), toList([text3("Home Town")])),
           (() => {
-            let _pipe = view4(form_data.location_input, "Search for your hometown...");
+            let _pipe = view5(form_data.location_input, "Search for your hometown...");
             return map6(_pipe, (msg) => {
               return on_msg(new LocationInputMsg(msg));
             });
@@ -20346,11 +20483,11 @@ function view5(profile, form_data, handle2, on_msg) {
         button2(toList([
           type_("button"),
           on_click(on_msg(new CancelClicked))
-        ]), new Default, new Md2, toList([text3("Cancel")])),
+        ]), new Default, new Md, toList([text3("Cancel")])),
         button2(toList([
           type_("submit"),
           disabled(form_data.is_saving)
-        ]), new Primary, new Md2, toList([
+        ]), new Primary, new Md, toList([
           text3((() => {
             let $ = form_data.is_saving;
             if ($) {
@@ -20367,9 +20504,9 @@ function view5(profile, form_data, handle2, on_msg) {
 
 // build/dev/javascript/client/ui/layout.mjs
 class User extends CustomType {
-  constructor(name, handle2) {
+  constructor(name2, handle2) {
     super();
-    this.name = name;
+    this.name = name2;
     this.handle = handle2;
   }
 }
@@ -20379,8 +20516,8 @@ function view_nav(user) {
     let _block;
     let $ = u.name;
     if ($ instanceof Some) {
-      let name = $[0];
-      _block = name;
+      let name2 = $[0];
+      _block = name2;
     } else {
       _block = "@" + u.handle;
     }
@@ -20435,6 +20572,8 @@ var FILEPATH = "src/client.gleam";
 
 class Home extends CustomType {
 }
+class Login extends CustomType {
+}
 class Profile2 extends CustomType {
   constructor(handle2) {
     super();
@@ -20470,11 +20609,12 @@ class Failed extends CustomType {
   }
 }
 class Model2 extends CustomType {
-  constructor(route, profile_state, edit_form_data) {
+  constructor(route, profile_state, edit_form_data, current_user) {
     super();
     this.route = route;
     this.profile_state = profile_state;
     this.edit_form_data = edit_form_data;
+    this.current_user = current_user;
   }
 }
 
@@ -20498,11 +20638,29 @@ class ProfileEditMsg extends CustomType {
     this[0] = $0;
   }
 }
+
+class CurrentUserFetched extends CustomType {
+  constructor($0) {
+    super();
+    this[0] = $0;
+  }
+}
 function read_embedded_profile_data() {
   let _pipe = querySelector("#model");
   let _pipe$1 = map4(_pipe, innerText);
   let _pipe$2 = try$(_pipe$1, (json_string) => {
-    let _pipe$22 = parse(json_string, profile_decoder());
+    let _pipe$22 = parse(json_string, at(toList(["profile"]), profile_decoder()));
+    return replace_error(_pipe$22, undefined);
+  });
+  return from_result(_pipe$2);
+}
+function read_embedded_user_data() {
+  let _pipe = querySelector("#model");
+  let _pipe$1 = map4(_pipe, innerText);
+  let _pipe$2 = try$(_pipe$1, (json_string) => {
+    let _pipe$22 = parse(json_string, at(toList(["user"]), field("handle", string2, (handle2) => {
+      return success(new User(new None, handle2));
+    })));
     return replace_error(_pipe$22, undefined);
   });
   return from_result(_pipe$2);
@@ -20517,6 +20675,8 @@ function parse_route(uri) {
       let $2 = $.head;
       if ($2 === "") {
         return new Home;
+      } else if ($2 === "login") {
+        return new Login;
       } else {
         return new NotFound(uri);
       }
@@ -20557,6 +20717,37 @@ function on_url_change(uri) {
   let _pipe$1 = parse_route(_pipe);
   return new UserNavigatedTo(_pipe$1);
 }
+function fetch_current_user() {
+  return from((dispatch) => {
+    let url = "/api/user/current";
+    let _pipe = fetchUrl(url);
+    let _pipe$1 = map_promise(_pipe, (body_result) => {
+      if (body_result instanceof Ok) {
+        let $ = body_result[0][0];
+        if ($ === 200) {
+          let text4 = body_result[0][1];
+          let _pipe$12 = parse(text4, field("handle", string2, (handle2) => {
+            return success(new User(new None, handle2));
+          }));
+          return map_error(_pipe$12, (_) => {
+            return "Failed to parse user JSON";
+          });
+        } else if ($ === 401) {
+          return new Error2("Not authenticated");
+        } else {
+          let status = $;
+          return new Error2("API request failed with status: " + to_string(status));
+        }
+      } else {
+        return body_result;
+      }
+    });
+    tap(_pipe$1, (result) => {
+      return dispatch(new CurrentUserFetched(result));
+    });
+    return;
+  });
+}
 function init3(_) {
   let _block;
   let $ = do_initial_uri();
@@ -20568,27 +20759,28 @@ function init3(_) {
   }
   let route = _block;
   let prerendered_profile = read_embedded_profile_data();
+  let prerendered_user = read_embedded_user_data();
   let _block$1;
   if (route instanceof Profile2) {
     if (prerendered_profile instanceof Some) {
       let profile_data = prerendered_profile[0];
-      let model2 = new Model2(route, new Loaded(profile_data), init_form_data(new None));
+      let model2 = new Model2(route, new Loaded(profile_data), init_form_data(new None), prerendered_user);
       _block$1 = [model2, none()];
     } else {
-      let model2 = new Model2(route, new Failed("Profile not found"), init_form_data(new None));
+      let model2 = new Model2(route, new Failed("Profile not found"), init_form_data(new None), prerendered_user);
       _block$1 = [model2, none()];
     }
   } else if (route instanceof ProfileEdit) {
     if (prerendered_profile instanceof Some) {
       let profile_data = prerendered_profile[0];
-      let model2 = new Model2(route, new Loaded(profile_data), init_form_data(new Some(profile_data)));
+      let model2 = new Model2(route, new Loaded(profile_data), init_form_data(new Some(profile_data)), prerendered_user);
       _block$1 = [model2, none()];
     } else {
-      let model2 = new Model2(route, new Failed("Profile not found"), init_form_data(new None));
+      let model2 = new Model2(route, new Failed("Profile not found"), init_form_data(new None), prerendered_user);
       _block$1 = [model2, none()];
     }
   } else {
-    let model2 = new Model2(route, new NotAsked, init_form_data(new None));
+    let model2 = new Model2(route, new NotAsked, init_form_data(new None), prerendered_user);
     _block$1 = [model2, none()];
   }
   let $1 = _block$1;
@@ -20597,7 +20789,14 @@ function init3(_) {
   model = $1[0];
   initial_effect = $1[1];
   let modem_effect = init(on_url_change);
-  let combined_effect = batch(toList([modem_effect, initial_effect]));
+  let _block$2;
+  if (prerendered_user instanceof Some) {
+    _block$2 = none();
+  } else {
+    _block$2 = fetch_current_user();
+  }
+  let fetch_user_effect = _block$2;
+  let combined_effect = batch(toList([modem_effect, initial_effect, fetch_user_effect]));
   return [model, combined_effect];
 }
 function fetch_profile(handle2) {
@@ -20640,6 +20839,25 @@ function fetch_profile(handle2) {
     return;
   });
 }
+function process_file_from_input_effect(input_id) {
+  return from((dispatch) => {
+    let _pipe = processFileFromInputId(input_id);
+    let _pipe$1 = map_promise(_pipe, (result) => {
+      if (result instanceof Ok) {
+        let file_data = result[0];
+        console_log("File processed successfully");
+        return dispatch(new ProfileEditMsg(new AvatarFileProcessed(file_data)));
+      } else {
+        let err = result[0];
+        return console_log("Failed to process file: " + err);
+      }
+    });
+    then_await(_pipe$1, (_) => {
+      return resolve(undefined);
+    });
+    return;
+  });
+}
 function save_profile_effect(handle2, form_data) {
   return from((dispatch) => {
     let url = "/api/profile/" + handle2 + "/update";
@@ -20649,8 +20867,8 @@ function save_profile_effect(handle2, form_data) {
     if ($ === "") {
       _block = json_fields;
     } else {
-      let name = $;
-      _block = prepend(["display_name", string3(name)], json_fields);
+      let name2 = $;
+      _block = prepend(["display_name", string3(name2)], json_fields);
     }
     let json_fields$1 = _block;
     let _block$1;
@@ -20692,19 +20910,33 @@ function save_profile_effect(handle2, form_data) {
     }
     let json_fields$4 = _block$3;
     let _block$4;
-    let _pipe = object2(json_fields$4);
-    _block$4 = to_string2(_pipe);
-    let json_body = _block$4;
+    let $4 = form_data.avatar_file_data;
+    if ($4 instanceof Some) {
+      let file_data = $4[0];
+      let $5 = file_data.base64_data;
+      if ($5 === "") {
+        _block$4 = json_fields$4;
+      } else {
+        _block$4 = prepend(["avatar_base64", string3(file_data.base64_data)], prepend(["avatar_mime_type", string3(file_data.mime_type)], json_fields$4));
+      }
+    } else {
+      _block$4 = json_fields$4;
+    }
+    let json_fields$5 = _block$4;
+    let _block$5;
+    let _pipe = object2(json_fields$5);
+    _block$5 = to_string2(_pipe);
+    let json_body = _block$5;
     console_log("Sending profile update: " + json_body);
     let _pipe$1 = postJson(url, json_body);
     let _pipe$2 = map_promise(_pipe$1, (result) => {
       if (result instanceof Ok) {
-        let $4 = result[0][0];
-        if ($4 === 200) {
+        let $5 = result[0][0];
+        if ($5 === 200) {
           console_log("Profile saved successfully");
           return dispatch(new ProfileEditMsg(new SaveCompleted(new Ok(undefined))));
         } else {
-          let status = $4;
+          let status = $5;
           let text4 = result[0][1];
           console_log("Save failed with status " + to_string(status) + ": " + text4);
           return dispatch(new ProfileEditMsg(new SaveCompleted(new Error2("Failed to save profile (status " + to_string(status) + ")"))));
@@ -20724,7 +20956,7 @@ function save_profile_effect(handle2, form_data) {
 function update3(model, msg) {
   if (msg instanceof UserNavigatedTo) {
     let route = msg.route;
-    let model$1 = new Model2(route, model.profile_state, model.edit_form_data);
+    let model$1 = new Model2(route, model.profile_state, model.edit_form_data, model.current_user);
     if (route instanceof Profile2) {
       let handle2 = route.handle;
       console_log("Navigating to profile: " + handle2);
@@ -20737,15 +20969,15 @@ function update3(model, msg) {
           if (loaded_handle === handle2) {
             return [model$1, none()];
           } else {
-            let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+            let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
             return [model$2, fetch_profile(handle2)];
           }
         } else {
-          let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+          let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
           return [model$2, fetch_profile(handle2)];
         }
       } else {
-        let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+        let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
         return [model$2, fetch_profile(handle2)];
       }
     } else if (route instanceof ProfileEdit) {
@@ -20760,19 +20992,19 @@ function update3(model, msg) {
           if (loaded_handle === handle2) {
             let form_data = init_form_data(new Some(p2));
             return [
-              new Model2(model$1.route, model$1.profile_state, form_data),
+              new Model2(model$1.route, model$1.profile_state, form_data, model$1.current_user),
               none()
             ];
           } else {
-            let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+            let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
             return [model$2, fetch_profile(handle2)];
           }
         } else {
-          let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+          let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
           return [model$2, fetch_profile(handle2)];
         }
       } else {
-        let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data);
+        let model$2 = new Model2(model$1.route, new Loading, model$1.edit_form_data, model$1.current_user);
         return [model$2, fetch_profile(handle2)];
       }
     } else {
@@ -20797,7 +21029,7 @@ function update3(model, msg) {
     let profile_state = _block;
     let _block$1;
     let $ = model.route;
-    if ($ instanceof ProfileEdit && profile_state instanceof Loaded) {
+    if (profile_state instanceof Loaded && $ instanceof ProfileEdit) {
       let profile_data = profile_state[0];
       _block$1 = init_form_data(new Some(profile_data));
     } else {
@@ -20805,43 +21037,53 @@ function update3(model, msg) {
     }
     let edit_form_data = _block$1;
     return [
-      new Model2(model.route, profile_state, edit_form_data),
+      new Model2(model.route, profile_state, edit_form_data, model.current_user),
       none()
     ];
-  } else {
+  } else if (msg instanceof ProfileEditMsg) {
     let edit_msg = msg[0];
     if (edit_msg instanceof DisplayNameUpdated) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(value3, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
+      _block = new FormData2(value3, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
-        new Model2(model.route, model.profile_state, form_data),
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
         none()
       ];
     } else if (edit_msg instanceof DescriptionUpdated) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, value3, _record.location_input, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
+      _block = new FormData2(_record.display_name, value3, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
-        new Model2(model.route, model.profile_state, form_data),
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
         none()
       ];
     } else if (edit_msg instanceof InterestsUpdated) {
       let value3 = edit_msg[0];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, _record.description, _record.location_input, value3, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
+      _block = new FormData2(_record.display_name, _record.description, _record.location_input, value3, _record.avatar_preview_url, _record.avatar_file_data, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
-        new Model2(model.route, model.profile_state, form_data),
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
         none()
       ];
-    } else if (edit_msg instanceof AvatarFileSelected) {
-      return [model, none()];
+    } else if (edit_msg instanceof AvatarFileChanged) {
+      return [model, process_file_from_input_effect("avatar-upload")];
+    } else if (edit_msg instanceof AvatarFileProcessed) {
+      let file_data = edit_msg[0];
+      let _block;
+      let _record = model.edit_form_data;
+      _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, new Some(file_data.preview_url), new Some(file_data), _record.success_message, _record.error_message, _record.is_saving);
+      let form_data = _block;
+      return [
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
+        none()
+      ];
     } else if (edit_msg instanceof LocationInputMsg) {
       let location_msg = edit_msg[0];
       let $ = update2(model.edit_form_data.location_input, location_msg);
@@ -20851,10 +21093,10 @@ function update3(model, msg) {
       location_effect = $[1];
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, _record.description, location_model, _record.interests, _record.avatar_preview_url, _record.success_message, _record.error_message, _record.is_saving);
+      _block = new FormData2(_record.display_name, _record.description, location_model, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, _record.success_message, _record.error_message, _record.is_saving);
       let form_data = _block;
       return [
-        new Model2(model.route, model.profile_state, form_data),
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
         (() => {
           let _pipe = location_effect;
           return map5(_pipe, (msg2) => {
@@ -20865,9 +21107,9 @@ function update3(model, msg) {
     } else if (edit_msg instanceof FormSubmitted) {
       let _block;
       let _record = model.edit_form_data;
-      _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new None, new None, true);
+      _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, new None, new None, true);
       let form_data = _block;
-      let model$1 = new Model2(model.route, model.profile_state, form_data);
+      let model$1 = new Model2(model.route, model.profile_state, form_data, model.current_user);
       let $ = model$1.route;
       if ($ instanceof ProfileEdit) {
         let handle2 = $.handle;
@@ -20880,15 +21122,15 @@ function update3(model, msg) {
       let _block;
       if (result instanceof Ok) {
         let _record = model.edit_form_data;
-        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new Some("Profile updated successfully!"), new None, false);
+        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, new Some("Profile updated successfully!"), new None, false);
       } else {
         let err = result[0];
         let _record = model.edit_form_data;
-        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, new None, new Some(err), false);
+        _block = new FormData2(_record.display_name, _record.description, _record.location_input, _record.interests, _record.avatar_preview_url, _record.avatar_file_data, new None, new Some(err), false);
       }
       let form_data = _block;
       return [
-        new Model2(model.route, model.profile_state, form_data),
+        new Model2(model.route, model.profile_state, form_data, model.current_user),
         none()
       ];
     } else {
@@ -20903,6 +21145,20 @@ function update3(model, msg) {
         return [model, none()];
       }
     }
+  } else {
+    let result = msg[0];
+    let _block;
+    if (result instanceof Ok) {
+      let user = result[0];
+      _block = new Some(user);
+    } else {
+      _block = new None;
+    }
+    let current_user = _block;
+    return [
+      new Model2(model.route, model.profile_state, model.edit_form_data, current_user),
+      none()
+    ];
   }
 }
 function view_not_found() {
@@ -20911,13 +21167,14 @@ function view_not_found() {
     p(toList([class$("text-zinc-400")]), toList([text3("The page you're looking for doesn't exist.")]))
   ]));
 }
-function view6(model) {
-  let user = new Some(new User(new Some("Chad Miller"), "chadtmiller.com"));
-  return layout(user, toList([
+function view7(model) {
+  return layout(model.current_user, toList([
     (() => {
       let $ = model.route;
       if ($ instanceof Home) {
         return view2();
+      } else if ($ instanceof Login) {
+        return view3();
       } else if ($ instanceof Profile2) {
         let $1 = model.profile_state;
         if ($1 instanceof NotAsked) {
@@ -20930,7 +21187,7 @@ function view6(model) {
           ]));
         } else if ($1 instanceof Loaded) {
           let p2 = $1[0];
-          return view3(p2);
+          return view4(p2);
         } else {
           let error = $1.error;
           return div(toList([class$("text-center py-12")]), toList([
@@ -20953,7 +21210,7 @@ function view6(model) {
           ]));
         } else if ($1 instanceof Loaded) {
           let p2 = $1[0];
-          return view5(new Some(p2), model.edit_form_data, handle2, (var0) => {
+          return view6(new Some(p2), model.edit_form_data, handle2, (var0) => {
             return new ProfileEditMsg(var0);
           });
         } else {
@@ -20972,10 +21229,10 @@ function view6(model) {
   ]));
 }
 function main() {
-  let app = application(init3, update3, view6);
+  let app = application(init3, update3, view7);
   let $ = start3(app, "#app", undefined);
   if (!($ instanceof Ok)) {
-    throw makeError("let_assert", FILEPATH, "client", 27, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 661, end: 710, pattern_start: 672, pattern_end: 677 });
+    throw makeError("let_assert", FILEPATH, "client", 29, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 708, end: 757, pattern_start: 719, pattern_end: 724 });
   }
   return;
 }

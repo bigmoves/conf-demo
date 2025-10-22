@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/int
 import gleam/io
 import gleam/javascript/promise
@@ -14,6 +15,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import modem
 import pages/home
+import pages/login
 import pages/profile as profile_page
 import pages/profile_edit
 import plinth/browser/document
@@ -33,6 +35,7 @@ pub fn main() {
 
 pub type Route {
   Home
+  Login
   Profile(handle: String)
   ProfileEdit(handle: String)
   NotFound(uri: Uri)
@@ -50,6 +53,7 @@ type Model {
     route: Route,
     profile_state: ProfileState,
     edit_form_data: profile_edit.FormData,
+    current_user: option.Option(layout.User),
   )
 }
 
@@ -61,6 +65,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
 
   // Try to read prerendered profile data from the server
   let prerendered_profile = read_embedded_profile_data()
+  let prerendered_user = read_embedded_user_data()
 
   // Check if we need to fetch profile data on initial load
   let #(model, initial_effect) = case route {
@@ -73,6 +78,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
               route: route,
               profile_state: Loaded(profile_data),
               edit_form_data: profile_edit.init_form_data(None),
+              current_user: prerendered_user,
             )
           #(model, effect.none())
         }
@@ -82,6 +88,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
               route: route,
               profile_state: Failed("Profile not found"),
               edit_form_data: profile_edit.init_form_data(None),
+              current_user: prerendered_user,
             )
           #(model, effect.none())
         }
@@ -96,6 +103,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
               route: route,
               profile_state: Loaded(profile_data),
               edit_form_data: profile_edit.init_form_data(Some(profile_data)),
+              current_user: prerendered_user,
             )
           #(model, effect.none())
         }
@@ -105,6 +113,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
               route: route,
               profile_state: Failed("Profile not found"),
               edit_form_data: profile_edit.init_form_data(None),
+              current_user: prerendered_user,
             )
           #(model, effect.none())
         }
@@ -116,6 +125,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
           route: route,
           profile_state: NotAsked,
           edit_form_data: profile_edit.init_form_data(None),
+          current_user: prerendered_user,
         )
       #(model, effect.none())
     }
@@ -123,8 +133,14 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
 
   let modem_effect = modem.init(on_url_change)
 
-  // Combine both effects
-  let combined_effect = effect.batch([modem_effect, initial_effect])
+  // Only fetch user if not already prerendered
+  let fetch_user_effect = case prerendered_user {
+    Some(_) -> effect.none()
+    None -> fetch_current_user()
+  }
+
+  // Combine all effects
+  let combined_effect = effect.batch([modem_effect, initial_effect, fetch_user_effect])
 
   #(model, combined_effect)
 }
@@ -133,7 +149,20 @@ fn read_embedded_profile_data() -> option.Option(Profile) {
   document.query_selector("#model")
   |> result.map(plinth_element.inner_text)
   |> result.try(fn(json_string) {
-    json.parse(json_string, profile.profile_decoder())
+    json.parse(json_string, decode.at(["profile"], profile.profile_decoder()))
+    |> result.replace_error(Nil)
+  })
+  |> option.from_result
+}
+
+fn read_embedded_user_data() -> option.Option(layout.User) {
+  document.query_selector("#model")
+  |> result.map(plinth_element.inner_text)
+  |> result.try(fn(json_string) {
+    json.parse(json_string, decode.at(["user"], {
+      use handle <- decode.field("handle", decode.string)
+      decode.success(layout.User(name: None, handle: handle))
+    }))
     |> result.replace_error(Nil)
   })
   |> option.from_result
@@ -148,6 +177,7 @@ fn on_url_change(uri: Uri) -> Msg {
 fn parse_route(uri: Uri) -> Route {
   case uri.path_segments(uri.path) {
     [] | [""] -> Home
+    ["login"] -> Login
     ["profile", handle] -> Profile(handle: handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle: handle)
     _ -> NotFound(uri: uri)
@@ -160,10 +190,19 @@ type Msg {
   UserNavigatedTo(route: Route)
   ProfileFetched(Result(option.Option(Profile), String))
   ProfileEditMsg(profile_edit.Msg)
+  CurrentUserFetched(Result(layout.User, String))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
+    CurrentUserFetched(result) -> {
+      let current_user = case result {
+        Ok(user) -> Some(user)
+        Error(_) -> None
+      }
+      #(Model(..model, current_user: current_user), effect.none())
+    }
+
     UserNavigatedTo(route: route) -> {
       let model = Model(..model, route: route)
 
@@ -203,10 +242,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
               case p.handle {
                 option.Some(loaded_handle) if loaded_handle == handle -> {
                   let form_data = profile_edit.init_form_data(Some(p))
-                  #(
-                    Model(..model, edit_form_data: form_data),
-                    effect.none(),
-                  )
+                  #(Model(..model, edit_form_data: form_data), effect.none())
                 }
                 _ -> {
                   // Profile doesn't match, fetch the correct one
@@ -276,9 +312,18 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
             profile_edit.FormData(..model.edit_form_data, interests: value)
           #(Model(..model, edit_form_data: form_data), effect.none())
         }
-        profile_edit.AvatarFileSelected(_file_url) -> {
-          // TODO: Handle avatar file selection
-          #(model, effect.none())
+        profile_edit.AvatarFileChanged(_files) -> {
+          // Trigger an effect to process the file from the input element
+          #(model, process_file_from_input_effect("avatar-upload"))
+        }
+        profile_edit.AvatarFileProcessed(file_data) -> {
+          let form_data =
+            profile_edit.FormData(
+              ..model.edit_form_data,
+              avatar_preview_url: Some(file_data.preview_url),
+              avatar_file_data: Some(file_data),
+            )
+          #(Model(..model, edit_form_data: form_data), effect.none())
         }
         profile_edit.FormSubmitted -> {
           // Clear any existing messages and set saving state
@@ -332,6 +377,36 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
+fn fetch_current_user() -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    let url = "/api/user/current"
+
+    fetch_url(url)
+    |> promise.map(fn(body_result) {
+      case body_result {
+        Ok(#(200, text)) -> {
+          json.parse(text, {
+            use handle <- decode.field("handle", decode.string)
+            decode.success(layout.User(name: None, handle: handle))
+          })
+          |> result.map_error(fn(_) { "Failed to parse user JSON" })
+        }
+        Ok(#(401, _)) -> {
+          // Not authenticated
+          Error("Not authenticated")
+        }
+        Ok(#(status, _)) -> {
+          Error("API request failed with status: " <> int.to_string(status))
+        }
+        Error(err) -> Error(err)
+      }
+    })
+    |> promise.tap(fn(result) { dispatch(CurrentUserFetched(result)) })
+
+    Nil
+  })
+}
+
 fn fetch_profile(handle: String) -> Effect(Msg) {
   effect.from(fn(dispatch) {
     let url = "/api/profile/" <> handle
@@ -380,6 +455,32 @@ fn post_json(
   json_body: String,
 ) -> promise.Promise(Result(#(Int, String), String))
 
+// FFI function to get file from input and process it
+@external(javascript, "./client_ffi.mjs", "processFileFromInputId")
+fn process_file_from_input_id(
+  input_id: String,
+) -> promise.Promise(Result(profile_edit.AvatarFileData, String))
+
+fn process_file_from_input_effect(input_id: String) -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    process_file_from_input_id(input_id)
+    |> promise.map(fn(result) {
+      case result {
+        Ok(file_data) -> {
+          io.println("File processed successfully")
+          dispatch(ProfileEditMsg(profile_edit.AvatarFileProcessed(file_data)))
+        }
+        Error(err) -> {
+          io.println("Failed to process file: " <> err)
+        }
+      }
+    })
+    |> promise.await(fn(_) { promise.resolve(Nil) })
+
+    Nil
+  })
+}
+
 fn save_profile_effect(
   handle: String,
   form_data: profile_edit.FormData,
@@ -427,6 +528,20 @@ fn save_profile_effect(
       }
     }
 
+    // Add avatar data if a new file was selected
+    let json_fields = case form_data.avatar_file_data {
+      Some(file_data) ->
+        case file_data.base64_data {
+          "" -> json_fields
+          _ -> [
+            #("avatar_base64", json.string(file_data.base64_data)),
+            #("avatar_mime_type", json.string(file_data.mime_type)),
+            ..json_fields
+          ]
+        }
+      None -> json_fields
+    }
+
     let json_body = json.object(json_fields) |> json.to_string
 
     io.println("Sending profile update: " <> json_body)
@@ -472,12 +587,10 @@ fn save_profile_effect(
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  let user =
-    Some(layout.User(name: Some("Chad Miller"), handle: "chadtmiller.com"))
-
-  layout.layout(user, [
+  layout.layout(model.current_user, [
     case model.route {
       Home -> home.view()
+      Login -> login.view()
       Profile(handle: _handle) -> {
         case model.profile_state {
           NotAsked | Loading ->

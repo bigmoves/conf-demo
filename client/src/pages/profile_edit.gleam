@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/option.{type Option}
 import gleam/string
 import lustre/attribute
@@ -10,16 +11,26 @@ import ui/button
 import ui/input
 import ui/location_input
 import ui/textarea
+import utils/location
+
+pub type AvatarFileData {
+  AvatarFileData(preview_url: String, base64_data: String, mime_type: String)
+}
 
 pub type Msg {
   DisplayNameUpdated(String)
   DescriptionUpdated(String)
   InterestsUpdated(String)
-  AvatarFileSelected(String)
+  AvatarFileChanged(List(File))
+  AvatarFileProcessed(AvatarFileData)
   LocationInputMsg(location_input.Msg)
   FormSubmitted
   SaveCompleted(Result(Nil, String))
   CancelClicked
+}
+
+pub type File {
+  File(name: String, size: Int, mime_type: String)
 }
 
 pub type FormData {
@@ -29,10 +40,27 @@ pub type FormData {
     location_input: location_input.Model,
     interests: String,
     avatar_preview_url: Option(String),
+    avatar_file_data: Option(AvatarFileData),
     success_message: Option(String),
     error_message: Option(String),
     is_saving: Bool,
   )
+}
+
+pub fn update(form_data: FormData, msg: Msg) -> FormData {
+  case msg {
+    DisplayNameUpdated(value) -> FormData(..form_data, display_name: value)
+    DescriptionUpdated(value) -> FormData(..form_data, description: value)
+    InterestsUpdated(value) -> FormData(..form_data, interests: value)
+    AvatarFileChanged(_files) -> form_data  // Handled in parent with effect
+    AvatarFileProcessed(file_data) ->
+      FormData(
+        ..form_data,
+        avatar_preview_url: option.Some(file_data.preview_url),
+        avatar_file_data: option.Some(file_data),
+      )
+    _ -> form_data
+  }
 }
 
 pub fn init_form_data(profile: Option(Profile)) -> FormData {
@@ -43,10 +71,15 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         option.None -> ""
       }
 
-      // For now, just use the home_town string as is
-      // TODO: Parse JSON if needed
+      // Convert HomeTown to LocationData
       let location_data = case p.home_town {
-        option.Some(_town) -> option.None
+        option.Some(town) ->
+          option.Some(location.LocationData(
+            name: town.name,
+            lat: 0.0,
+            lon: 0.0,
+            h3_index: town.h3_index,
+          ))
         option.None -> option.None
       }
 
@@ -56,6 +89,7 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         location_input: location_input.init(location_data),
         interests: interests_str,
         avatar_preview_url: p.avatar_url,
+        avatar_file_data: option.None,
         success_message: option.None,
         error_message: option.None,
         is_saving: False,
@@ -68,6 +102,7 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         location_input: location_input.init(option.None),
         interests: "",
         avatar_preview_url: option.None,
+        avatar_file_data: option.None,
         success_message: option.None,
         error_message: option.None,
         is_saving: False,
@@ -169,7 +204,9 @@ pub fn view(
                   attribute.id("avatar-upload"),
                   attribute.accept(["image/*"]),
                   attribute.class("hidden"),
-                  // Note: File handling will require FFI
+                  event.on("change", decode.map(decode.dynamic, fn(_) {
+                    on_msg(AvatarFileChanged([]))
+                  })),
                 ]),
               ]),
             ]),
@@ -258,3 +295,4 @@ pub fn view(
     ),
   ])
 }
+

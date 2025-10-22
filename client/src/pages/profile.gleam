@@ -39,7 +39,7 @@ pub fn view(p: Profile) -> Element(msg) {
         case p.home_town {
           option.Some(town) ->
             html.p([attribute.class("text-zinc-400 text-sm")], [
-              html.text("📍 " <> town),
+              html.text("📍 " <> town.name),
             ])
           option.None -> html.div([], [])
         },
@@ -49,9 +49,7 @@ pub fn view(p: Profile) -> Element(msg) {
       html.a(
         [
           attribute.href(
-            "/profile/"
-            <> option.unwrap(p.handle, p.did)
-            <> "/edit",
+            "/profile/" <> option.unwrap(p.handle, p.did) <> "/edit",
           ),
           attribute.class(
             "px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer",
