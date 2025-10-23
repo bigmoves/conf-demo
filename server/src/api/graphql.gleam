@@ -598,3 +598,354 @@ pub fn update_profile(
       )
   }
 }
+
+// PROFILE INITIALIZATION HELPERS ----------------------------------------------
+
+pub type BlueskyProfile {
+  BlueskyProfile(
+    display_name: Option(String),
+    description: Option(String),
+    avatar: Option(BlueskyAvatar),
+  )
+}
+
+pub type BlueskyAvatar {
+  BlueskyAvatar(ref: String, mime_type: String, size: Int)
+}
+
+/// Check if a profile already exists for the given DID
+pub fn check_profile_exists(config: Config, did: String) -> Result(Bool, String) {
+  let query =
+    "
+    query CheckProfile($did: String!) {
+      orgAtmosphereconfProfiles(where: { did: { eq: $did } }, first: 1) {
+        edges {
+          node {
+            id
+          }
+        }
+      }
+    }
+  "
+
+  let variables = json.object([#("did", json.string(did))])
+
+  let body_json =
+    json.object([
+      #("query", json.string(query)),
+      #("variables", variables),
+    ])
+
+  use req <- result.try(
+    request.to(config.api_url)
+    |> result.map_error(fn(_) { "Failed to create request" }),
+  )
+
+  let req =
+    request.set_method(req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("X-Slice-Uri", config.slice_uri)
+    |> request.set_header("Authorization", "Bearer " <> config.access_token)
+    |> request.set_body(json.to_string(body_json))
+
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP request failed" }),
+  )
+
+  case resp.status {
+    200 -> {
+      use data <- result.try(
+        json.parse(resp.body, decode.dynamic)
+        |> result.map_error(fn(_) { "Failed to parse JSON response" }),
+      )
+
+      let edges_decoder =
+        decode.at(
+          ["data", "orgAtmosphereconfProfiles", "edges"],
+          decode.list(decode.dynamic),
+        )
+
+      use edges <- result.try(
+        decode.run(data, edges_decoder)
+        |> result.map_error(fn(_) { "Failed to extract edges" }),
+      )
+
+      case edges {
+        [] -> Ok(False)
+        _ -> Ok(True)
+      }
+    }
+    _ ->
+      Error(
+        "API returned status "
+        <> string.inspect(resp.status)
+        <> " with body: "
+        <> resp.body,
+      )
+  }
+}
+
+/// Sync user collections (Bluesky data)
+pub fn sync_user_collections(config: Config, did: String) -> Result(Nil, String) {
+  let mutation =
+    "
+    mutation SyncUserCollections($did: String!) {
+      syncUserCollections(did: $did) {
+        success
+        message
+      }
+    }
+  "
+
+  let variables = json.object([#("did", json.string(did))])
+
+  let body_json =
+    json.object([
+      #("query", json.string(mutation)),
+      #("variables", variables),
+    ])
+
+  use req <- result.try(
+    request.to(config.api_url)
+    |> result.map_error(fn(_) { "Failed to create request" }),
+  )
+
+  let req =
+    request.set_method(req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("X-Slice-Uri", config.slice_uri)
+    |> request.set_header("Authorization", "Bearer " <> config.access_token)
+    |> request.set_body(json.to_string(body_json))
+
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP request failed" }),
+  )
+
+  case resp.status {
+    200 -> Ok(Nil)
+    _ ->
+      Error(
+        "Sync failed with status "
+        <> string.inspect(resp.status)
+        <> " with body: "
+        <> resp.body,
+      )
+  }
+}
+
+/// Fetch Bluesky profile data
+pub fn get_bluesky_profile(
+  config: Config,
+  did: String,
+) -> Result(Option(BlueskyProfile), String) {
+  let query =
+    "
+    query GetBskyProfile($did: String!) {
+      appBskyActorProfiles(where: { did: { eq: $did } }, first: 1) {
+        edges {
+          node {
+            displayName
+            description
+            avatar {
+              ref
+              mimeType
+              size
+            }
+          }
+        }
+      }
+    }
+  "
+
+  let variables = json.object([#("did", json.string(did))])
+
+  let body_json =
+    json.object([
+      #("query", json.string(query)),
+      #("variables", variables),
+    ])
+
+  use req <- result.try(
+    request.to(config.api_url)
+    |> result.map_error(fn(_) { "Failed to create request" }),
+  )
+
+  let req =
+    request.set_method(req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("X-Slice-Uri", config.slice_uri)
+    |> request.set_header("Authorization", "Bearer " <> config.access_token)
+    |> request.set_body(json.to_string(body_json))
+
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP request failed" }),
+  )
+
+  case resp.status {
+    200 -> {
+      use data <- result.try(
+        json.parse(resp.body, decode.dynamic)
+        |> result.map_error(fn(_) { "Failed to parse JSON response" }),
+      )
+
+      let edges_decoder =
+        decode.at(
+          ["data", "appBskyActorProfiles", "edges"],
+          decode.list(decode.dynamic),
+        )
+
+      use edges <- result.try(
+        decode.run(data, edges_decoder)
+        |> result.map_error(fn(_) { "Failed to extract edges" }),
+      )
+
+      case edges {
+        [] -> Ok(None)
+        [first_edge, ..] -> {
+          let display_name = case
+            decode.run(
+              first_edge,
+              decode.at(["node", "displayName"], decode.optional(decode.string)),
+            )
+          {
+            Ok(val) -> val
+            Error(_) -> None
+          }
+
+          let description = case
+            decode.run(
+              first_edge,
+              decode.at(["node", "description"], decode.optional(decode.string)),
+            )
+          {
+            Ok(val) -> val
+            Error(_) -> None
+          }
+
+          let avatar = case
+            decode.run(
+              first_edge,
+              decode.at(
+                ["node", "avatar"],
+                decode.optional({
+                  use ref <- decode.field("ref", decode.string)
+                  use mime_type <- decode.field("mimeType", decode.string)
+                  use size <- decode.field("size", decode.int)
+                  decode.success(BlueskyAvatar(
+                    ref: ref,
+                    mime_type: mime_type,
+                    size: size,
+                  ))
+                }),
+              ),
+            )
+          {
+            Ok(val) -> val
+            Error(_) -> None
+          }
+
+          Ok(Some(BlueskyProfile(
+            display_name: display_name,
+            description: description,
+            avatar: avatar,
+          )))
+        }
+      }
+    }
+    _ ->
+      Error(
+        "API returned status "
+        <> string.inspect(resp.status)
+        <> " with body: "
+        <> resp.body,
+      )
+  }
+}
+
+pub type ProfileInput {
+  ProfileInput(
+    display_name: String,
+    description: Option(String),
+    avatar: Option(json.Json),
+    created_at: String,
+  )
+}
+
+/// Create a new profile
+pub fn create_profile(
+  config: Config,
+  input: ProfileInput,
+) -> Result(Nil, String) {
+  let mutation =
+    "
+    mutation CreateProfile(
+      $input: OrgAtmosphereconfProfileInput!
+      $rkey: String
+    ) {
+      createOrgAtmosphereconfProfile(input: $input, rkey: $rkey) {
+        id
+      }
+    }
+  "
+
+  // Build input object
+  let input_fields = [#("displayName", json.string(input.display_name))]
+
+  let input_fields = case input.description {
+    Some(val) -> [#("description", json.string(val)), ..input_fields]
+    None -> input_fields
+  }
+
+  let input_fields = case input.avatar {
+    Some(val) -> [#("avatar", val), ..input_fields]
+    None -> input_fields
+  }
+
+  let input_fields = [
+    #("createdAt", json.string(input.created_at)),
+    ..input_fields
+  ]
+
+  let variables =
+    json.object([
+      #("rkey", json.string("self")),
+      #("input", json.object(input_fields)),
+    ])
+
+  let body_json =
+    json.object([
+      #("query", json.string(mutation)),
+      #("variables", variables),
+    ])
+
+  use req <- result.try(
+    request.to(config.api_url)
+    |> result.map_error(fn(_) { "Failed to create request" }),
+  )
+
+  let req =
+    request.set_method(req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("X-Slice-Uri", config.slice_uri)
+    |> request.set_header("Authorization", "Bearer " <> config.access_token)
+    |> request.set_body(json.to_string(body_json))
+
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP request failed" }),
+  )
+
+  case resp.status {
+    200 -> Ok(Nil)
+    _ ->
+      Error(
+        "Create profile failed with status "
+        <> string.inspect(resp.status)
+        <> " with body: "
+        <> resp.body,
+      )
+  }
+}

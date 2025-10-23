@@ -1,4 +1,5 @@
 import api/graphql
+import api/profile_init
 import dotenv_gleam
 import envoy
 import gleam/bit_array
@@ -40,13 +41,13 @@ pub type OAuthConfig {
 fn load_oauth_config() -> OAuthConfig {
   OAuthConfig(
     client_id: envoy.get("OAUTH_CLIENT_ID")
-      |> result.unwrap("43d2e6e5-60fe-491c-b93e-536ac99b71f1"),
+      |> result.unwrap(""),
     client_secret: envoy.get("OAUTH_CLIENT_SECRET")
-      |> result.unwrap("0elWjAl695lupMGMZ0IOo9xEy11dNiY96L08b6z_xZw"),
+      |> result.unwrap(""),
     redirect_uri: envoy.get("OAUTH_REDIRECT_URI")
       |> result.unwrap("http://localhost:3000/oauth/callback"),
     auth_url: envoy.get("OAUTH_AUTH_URL")
-      |> result.unwrap("http://localhost:2583"),
+      |> result.unwrap("http://localhost:3001"),
   )
 }
 
@@ -483,12 +484,14 @@ fn update_profile_json(
               case current_profile.avatar_blob {
                 Some(blob) -> {
                   // Convert AvatarBlob to JSON for the mutation
-                  Some(json.object([
-                    #("$type", json.string("blob")),
-                    #("ref", json.object([#("$link", json.string(blob.ref))])),
-                    #("mimeType", json.string(blob.mime_type)),
-                    #("size", json.int(blob.size)),
-                  ]))
+                  Some(
+                    json.object([
+                      #("$type", json.string("blob")),
+                      #("ref", json.object([#("$link", json.string(blob.ref))])),
+                      #("mimeType", json.string(blob.mime_type)),
+                      #("size", json.int(blob.size)),
+                    ]),
+                  )
                 }
                 None -> None
               }
@@ -667,6 +670,21 @@ fn handle_oauth_callback(
                     "  Handle: " <> option.unwrap(user_info.handle, "(none)"),
                   )
 
+                  // Initialize user profile (silent failure)
+                  let graphql_config =
+                    graphql.Config(
+                      api_url: "https://api.slices.network/graphql",
+                      slice_uri: "at://did:plc:bcgltzqazw5tb6k2g3ttenbj/network.slices.slice/3m3gc7lhwzx2z",
+                      access_token: token_response.access_token,
+                    )
+
+                  let _ =
+                    profile_init.initialize_user_profile(
+                      graphql_config,
+                      user_info.did,
+                      option.unwrap(user_info.handle, ""),
+                    )
+
                   case
                     session.create_session(
                       db,
@@ -677,7 +695,6 @@ fn handle_oauth_callback(
                     )
                   {
                     Ok(session_id) -> {
-                      wisp.log_info("OAuth: Session created: " <> session_id)
                       wisp.redirect("/")
                       |> session.set_session_cookie(req, session_id)
                     }
