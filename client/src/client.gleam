@@ -14,6 +14,7 @@ import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
 import modem
+import pages/attendees
 import pages/home
 import pages/login
 import pages/profile as profile_page
@@ -36,6 +37,7 @@ pub fn main() {
 pub type Route {
   Home
   Login
+  Attendees
   Profile(handle: String)
   ProfileEdit(handle: String)
   NotFound(uri: Uri)
@@ -48,10 +50,18 @@ pub type ProfileState {
   Failed(error: String)
 }
 
+pub type AttendeesState {
+  AttendeesNotAsked
+  AttendeesLoading
+  AttendeesLoaded(List(Profile))
+  AttendeesFailed(error: String)
+}
+
 type Model {
   Model(
     route: Route,
     profile_state: ProfileState,
+    attendees_state: AttendeesState,
     edit_form_data: profile_edit.FormData,
     current_user: option.Option(layout.User),
   )
@@ -69,6 +79,33 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
 
   // Check if we need to fetch profile data on initial load
   let #(model, initial_effect) = case route {
+    Attendees -> {
+      // Check if user is logged in before fetching attendees
+      case prerendered_user {
+        None -> {
+          let model =
+            Model(
+              route: route,
+              profile_state: NotAsked,
+              attendees_state: AttendeesNotAsked,
+              edit_form_data: profile_edit.init_form_data(None),
+              current_user: prerendered_user,
+            )
+          #(model, modem.push("/login", option.None, option.None))
+        }
+        Some(_) -> {
+          let model =
+            Model(
+              route: route,
+              profile_state: NotAsked,
+              attendees_state: AttendeesLoading,
+              edit_form_data: profile_edit.init_form_data(None),
+              current_user: prerendered_user,
+            )
+          #(model, fetch_attendees())
+        }
+      }
+    }
     Profile(handle: _handle) -> {
       // Use prerendered data if available, otherwise show loading
       case prerendered_profile {
@@ -77,6 +114,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
             Model(
               route: route,
               profile_state: Loaded(profile_data),
+              attendees_state: AttendeesNotAsked,
               edit_form_data: profile_edit.init_form_data(None),
               current_user: prerendered_user,
             )
@@ -87,6 +125,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
             Model(
               route: route,
               profile_state: Failed("Profile not found"),
+              attendees_state: AttendeesNotAsked,
               edit_form_data: profile_edit.init_form_data(None),
               current_user: prerendered_user,
             )
@@ -102,6 +141,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
             Model(
               route: route,
               profile_state: Loaded(profile_data),
+              attendees_state: AttendeesNotAsked,
               edit_form_data: profile_edit.init_form_data(Some(profile_data)),
               current_user: prerendered_user,
             )
@@ -112,6 +152,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
             Model(
               route: route,
               profile_state: Failed("Profile not found"),
+              attendees_state: AttendeesNotAsked,
               edit_form_data: profile_edit.init_form_data(None),
               current_user: prerendered_user,
             )
@@ -124,6 +165,7 @@ fn init(_flags) -> #(Model, Effect(Msg)) {
         Model(
           route: route,
           profile_state: NotAsked,
+          attendees_state: AttendeesNotAsked,
           edit_form_data: profile_edit.init_form_data(None),
           current_user: prerendered_user,
         )
@@ -178,6 +220,7 @@ fn parse_route(uri: Uri) -> Route {
   case uri.path_segments(uri.path) {
     [] | [""] -> Home
     ["login"] -> Login
+    ["attendees"] -> Attendees
     ["profile", handle] -> Profile(handle: handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle: handle)
     _ -> NotFound(uri: uri)
@@ -189,6 +232,7 @@ fn parse_route(uri: Uri) -> Route {
 type Msg {
   UserNavigatedTo(route: Route)
   ProfileFetched(Result(option.Option(Profile), String))
+  AttendeesFetched(Result(List(Profile), String))
   ProfileEditMsg(profile_edit.Msg)
   CurrentUserFetched(Result(layout.User, String))
 }
@@ -208,6 +252,21 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
       // Fetch profile when navigating to a profile page
       case route {
+        Attendees -> {
+          io.println("Navigating to attendees")
+          // Check if user is logged in
+          case model.current_user {
+            option.None -> {
+              // Redirect to login if not authenticated
+              io.println("Not authenticated, redirecting to login")
+              #(model, modem.push("/login", option.None, option.None))
+            }
+            option.Some(_) -> {
+              let model = Model(..model, attendees_state: AttendeesLoading)
+              #(model, fetch_attendees())
+            }
+          }
+        }
         Profile(handle: handle) -> {
           io.println("Navigating to profile: " <> handle)
           // Check if we have the correct profile loaded
@@ -297,6 +356,15 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         Model(..model, profile_state: profile_state, edit_form_data: edit_form_data),
         effect.none(),
       )
+    }
+
+    AttendeesFetched(result) -> {
+      io.println("Attendees fetched result: " <> string.inspect(result))
+      let attendees_state = case result {
+        Ok(profiles) -> AttendeesLoaded(profiles)
+        Error(error) -> AttendeesFailed(error)
+      }
+      #(Model(..model, attendees_state: attendees_state), effect.none())
     }
 
     ProfileEditMsg(edit_msg) -> {
@@ -477,6 +545,39 @@ fn fetch_profile(handle: String) -> Effect(Msg) {
   })
 }
 
+fn fetch_attendees() -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    let url = "/api/attendees"
+    io.println("Fetching attendees from: " <> url)
+
+    fetch_url(url)
+    |> promise.map(fn(body_result) {
+      io.println("Attendees body result: " <> string.inspect(body_result))
+      case body_result {
+        Ok(#(200, text)) -> {
+          io.println("Got 200 response, parsing JSON...")
+          json.parse(text, decode.list(profile.profile_decoder()))
+          |> result.map_error(fn(err) {
+            io.println("JSON parse error: " <> string.inspect(err))
+            "Failed to parse attendees JSON"
+          })
+        }
+        Ok(#(status, _)) -> {
+          io.println("Got status: " <> string.inspect(status))
+          Error("API request failed")
+        }
+        Error(err) -> {
+          io.println("Fetch error: " <> err)
+          Error(err)
+        }
+      }
+    })
+    |> promise.tap(fn(result) { dispatch(AttendeesFetched(result)) })
+
+    Nil
+  })
+}
+
 @external(javascript, "./client_ffi.mjs", "fetchUrl")
 fn fetch_url(url: String) -> promise.Promise(Result(#(Int, String), String))
 
@@ -636,8 +737,15 @@ fn save_profile_effect(
 fn view(model: Model) -> Element(Msg) {
   layout.layout(model.current_user, [
     case model.route {
-      Home -> home.view()
+      Home -> home.view(model.current_user)
       Login -> login.view()
+      Attendees -> {
+        case model.attendees_state {
+          AttendeesNotAsked | AttendeesLoading -> attendees.view_loading()
+          AttendeesLoaded(profiles) -> attendees.view(profiles)
+          AttendeesFailed(error) -> attendees.view_error(error)
+        }
+      }
       Profile(handle: _handle) -> {
         case model.profile_state {
           NotAsked | Loading ->

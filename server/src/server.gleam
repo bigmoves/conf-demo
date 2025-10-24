@@ -194,6 +194,9 @@ fn handle_request(
     // API endpoint to get current user
     Get, ["api", "user", "current"] -> get_current_user_json(req, db)
 
+    // API endpoint to list all attendees
+    Get, ["api", "attendees"] -> fetch_attendees_json(req, db)
+
     // API endpoint to fetch profile data as JSON
     Get, ["api", "profile", handle] -> fetch_profile_json(handle, req, db)
 
@@ -204,6 +207,9 @@ fn handle_request(
     // Profile routes - prerender with data
     Get, ["profile", handle] -> serve_profile(handle, req, db)
     Get, ["profile", handle, "edit"] -> serve_profile(handle, req, db)
+
+    // Attendees page
+    Get, ["attendees"] -> serve_index(option.None, req, db)
 
     // Everything else gets our base HTML
     Get, _ -> serve_index(option.None, req, db)
@@ -337,6 +343,36 @@ fn fetch_profile_json(
     }
     Error(err) -> {
       wisp.log_error("API: Error fetching profile: " <> err)
+      wisp.json_response(
+        json.to_string(json.object([#("error", json.string(err))])),
+        500,
+      )
+    }
+  }
+}
+
+fn fetch_attendees_json(req: Request, db: sqlight.Connection) -> Response {
+  // Get access token from session if available
+  let access_token = case session.get_current_user(req, db) {
+    Ok(#(_, _, token)) -> token
+    Error(_) -> ""
+  }
+
+  let config = get_graphql_config(access_token)
+
+  wisp.log_info("API: Fetching all attendees")
+
+  case graphql.list_profiles(config) {
+    Ok(profiles) -> {
+      wisp.log_info(
+        "API: Found " <> int.to_string(list.length(profiles)) <> " profiles",
+      )
+      let profiles_json = json.array(profiles, profile.profile_to_json)
+      json.to_string(profiles_json)
+      |> wisp.json_response(200)
+    }
+    Error(err) -> {
+      wisp.log_error("API: Error fetching attendees: " <> err)
       wisp.json_response(
         json.to_string(json.object([#("error", json.string(err))])),
         500,

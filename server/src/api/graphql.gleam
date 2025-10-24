@@ -2,10 +2,12 @@ import api/graphql/check_profile_exists
 import api/graphql/create_profile as create_profile_gql
 import api/graphql/get_bluesky_profile
 import api/graphql/get_profile as get_profile_gql
+import api/graphql/list_profiles as list_profiles_gql
 import api/graphql/sync_user_collections
 import api/graphql/update_profile as update_profile_gql
 import api/graphql/upload_blob as upload_blob_gql
 import gleam/json
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import shared/profile.{type Profile}
@@ -262,4 +264,66 @@ pub fn create_profile(
   ))
 
   Ok(Nil)
+}
+
+/// List all profiles
+pub fn list_profiles(config: Config) -> Result(List(Profile), String) {
+  let client = create_client(config)
+
+  use response <- result.try(list_profiles_gql.list_profiles(client))
+
+  // Convert all profiles from generated types to our Profile type
+  let profiles =
+    response.org_atmosphereconf_profiles.edges
+    |> list.map(fn(edge) {
+      let node = edge.node
+
+      // Convert avatar from generated Blob type to our AvatarBlob type
+      let avatar_blob = case node.avatar {
+        Some(blob) ->
+          Some(profile.AvatarBlob(
+            ref: blob.ref,
+            mime_type: blob.mime_type,
+            size: blob.size,
+          ))
+        None -> None
+      }
+
+      // Convert home_town from generated type to HomeTown type
+      let home_town = case node.home_town {
+        Some(ht) -> convert_home_town_from_list(ht)
+        None -> None
+      }
+
+      profile.Profile(
+        id: node.id,
+        uri: node.uri,
+        cid: node.cid,
+        did: node.did,
+        handle: node.actor_handle,
+        display_name: node.display_name,
+        description: node.description,
+        avatar_url: case node.avatar {
+          Some(blob) -> Some(blob.url)
+          None -> None
+        },
+        avatar_blob: avatar_blob,
+        home_town: home_town,
+        interests: node.interests,
+        created_at: node.created_at,
+        indexed_at: node.indexed_at,
+      )
+    })
+
+  Ok(profiles)
+}
+
+/// Convert list_profiles's CommunityLexiconLocationHthree to HomeTown type
+fn convert_home_town_from_list(
+  ht: list_profiles_gql.CommunityLexiconLocationHthree,
+) -> Option(profile.HomeTown) {
+  case ht.name, ht.value {
+    Some(name), Some(value) -> Some(profile.HomeTown(name: name, h3_index: value))
+    _, _ -> None
+  }
 }

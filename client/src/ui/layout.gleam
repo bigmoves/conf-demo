@@ -32,6 +32,17 @@ pub fn layout(
           ),
           // Navigation
           html.div([attribute.class("flex gap-4 text-xs items-center")], [
+            case user {
+              option.Some(_) ->
+                html.a(
+                  [
+                    attribute.href("/attendees"),
+                    attribute.class("px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors"),
+                  ],
+                  [html.text("Attendees")],
+                )
+              option.None -> html.text("")
+            },
             view_nav(user),
           ]),
         ]),
