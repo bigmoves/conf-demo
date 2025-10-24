@@ -9,6 +9,7 @@ import gleam/erlang/process
 import gleam/http.{Get, Post}
 import gleam/http/request
 import gleam/httpc
+import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
@@ -82,11 +83,31 @@ pub fn main() {
   use db <- sqlight.with_connection("./sessions.db")
   let assert Ok(_) = session.init_db(db)
 
+  // Get host from environment or default to 127.0.0.1
+  let host = case envoy.get("HOST") {
+    Ok(h) -> h
+    Error(_) -> "127.0.0.1"
+  }
+
+  // Get port from environment or default to 3000
+  let port = case envoy.get("PORT") {
+    Ok(port_str) -> {
+      case int.parse(port_str) {
+        Ok(p) -> p
+        Error(_) -> 3000
+      }
+    }
+    Error(_) -> 3000
+  }
+
+  io.println("Listening on http://" <> host <> ":" <> int.to_string(port))
+
   let assert Ok(_) =
     handle_request(static_directory, db, oauth_config, _)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
-    |> mist.port(3000)
+    |> mist.bind(host)
+    |> mist.port(port)
     |> mist.start
 
   process.sleep_forever()

@@ -1,0 +1,31 @@
+# flyctl launch added from client/.gitignore
+client/**/*.beam
+client/**/*.ez
+client/build
+client/**/erl_crash.dump
+
+#Added automatically by Lustre Dev Tools
+client/.lustre
+client/dist
+client/node_modules
+
+# flyctl launch added from server/.gitignore
+server/**/*.beam
+server/**/*.ez
+server/build
+server/**/erl_crash.dump
+server/**/*db*
+server/**/.env
+
+# flyctl launch added from server/build/packages/squall/.gitignore
+server/build/packages/squall/**/*.beam
+server/build/packages/squall/**/*.ez
+server/build/packages/squall/**/build
+server/build/packages/squall/**/erl_crash.dump
+
+# flyctl launch added from shared/.gitignore
+shared/**/*.beam
+shared/**/*.ez
+shared/build
+shared/**/erl_crash.dump
+fly.toml
