@@ -26,6 +26,7 @@ pub type Profile {
     avatar_blob: Option(AvatarBlob),
     home_town: Option(HomeTown),
     interests: Option(List(String)),
+    created_at: Option(String),
     indexed_at: String,
   )
 }
@@ -61,6 +62,7 @@ pub fn profile_decoder() -> decode.Decoder(Profile) {
     "interests",
     decode.optional(decode.list(decode.string)),
   )
+  use created_at <- decode.field("created_at", decode.optional(decode.string))
   use indexed_at <- decode.field("indexed_at", decode.string)
   decode.success(Profile(
     id:,
@@ -74,6 +76,7 @@ pub fn profile_decoder() -> decode.Decoder(Profile) {
     avatar_blob:,
     home_town:,
     interests:,
+    created_at:,
     indexed_at:,
   ))
 }
@@ -91,6 +94,7 @@ pub fn profile_to_json(profile: Profile) -> json.Json {
     avatar_blob:,
     home_town:,
     interests:,
+    created_at:,
     indexed_at:,
   ) = profile
 
@@ -126,6 +130,7 @@ pub fn profile_to_json(profile: Profile) -> json.Json {
       "interests",
       json.nullable(interests, fn(list) { json.array(list, json.string) }),
     ),
+    #("created_at", json.nullable(created_at, json.string)),
     #("indexed_at", json.string(indexed_at)),
   ])
 }

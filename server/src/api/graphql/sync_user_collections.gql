@@ -1,0 +1,6 @@
+mutation SyncUserCollections($did: String!) {
+    syncUserCollections(did: $did) {
+        success
+        message
+    }
+}

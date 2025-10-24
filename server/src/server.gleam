@@ -1,4 +1,5 @@
 import api/graphql
+import api/graphql/update_profile as update_profile_gql
 import api/profile_init
 import dotenv_gleam
 import envoy
@@ -449,13 +450,24 @@ fn update_profile_json(
       Error(_) -> None
     }
 
+    let created_at = case
+      decode.run(
+        parsed,
+        decode.at(["created_at"], decode.optional(decode.string)),
+      )
+    {
+      Ok(val) -> val
+      Error(_) -> None
+    }
+
     Ok(#(
-      graphql.ProfileUpdate(
+      update_profile_gql.OrgAtmosphereconfProfileInput(
         display_name: display_name,
         description: description,
         home_town: home_town,
         interests: interests,
         avatar: None,
+        created_at: created_at,
       ),
       avatar_base64,
       avatar_mime_type,
@@ -487,7 +499,7 @@ fn update_profile_json(
                   Some(
                     json.object([
                       #("$type", json.string("blob")),
-                      #("ref", json.object([#("$link", json.string(blob.ref))])),
+                      #("ref", json.string(blob.ref)),
                       #("mimeType", json.string(blob.mime_type)),
                       #("size", json.int(blob.size)),
                     ]),
@@ -502,7 +514,11 @@ fn update_profile_json(
       }
 
       // Create final update with avatar blob if available
-      let final_update = graphql.ProfileUpdate(..update, avatar: avatar_blob)
+      let final_update =
+        update_profile_gql.OrgAtmosphereconfProfileInput(
+          ..update,
+          avatar: avatar_blob,
+        )
 
       case graphql.update_profile(config, handle, final_update) {
         Ok(updated_profile) -> {

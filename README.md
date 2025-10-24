@@ -29,6 +29,7 @@ A fullstack demo application built with Gleam and Lustre. Users can authenticate
 - **SQLight** - SQLite database driver
 - **Storail** - Session management
 - **Glow Auth** - OAuth utilities
+- **Squall** - Type-safe GraphQL code generator
 
 ### Shared
 - Monorepo structure with shared types and utilities between client and server
@@ -188,7 +189,13 @@ Location data is indexed using Uber's H3 geospatial indexing system for efficien
 Profile pages include prerendered data in the initial HTML response, embedded as JSON in a script tag for instant hydration.
 
 ### GraphQL Integration
-Direct queries and mutations to the Slices network API for ATProto profile data with access token support.
+Type-safe GraphQL queries and mutations generated from `.gql` files using Squall. All GraphQL operations are defined in `server/src/api/graphql/` and automatically generate type-safe Gleam code with decoders and input types.
+
+To regenerate GraphQL code after modifying `.gql` files:
+```bash
+cd server
+make generate-graphql
+```
 
 ## Building for Production
 

@@ -1,4 +1,5 @@
 import api/graphql
+import api/graphql/create_profile as create_profile_gql
 import birl
 import gleam/io
 import gleam/json
@@ -60,15 +61,14 @@ pub fn initialize_user_profile(
         Ok(Some(profile)) ->
           case profile.avatar {
             Some(avatar_blob) ->
-              Some(json.object([
-                #("$type", json.string("blob")),
-                #(
-                  "ref",
-                  json.object([#("$link", json.string(avatar_blob.ref))]),
-                ),
-                #("mimeType", json.string(avatar_blob.mime_type)),
-                #("size", json.int(avatar_blob.size)),
-              ]))
+              Some(
+                json.object([
+                  #("$type", json.string("blob")),
+                  #("ref", json.string(avatar_blob.ref)),
+                  #("mimeType", json.string(avatar_blob.mime_type)),
+                  #("size", json.int(avatar_blob.size)),
+                ]),
+              )
             None -> None
           }
         _ -> None
@@ -78,11 +78,13 @@ pub fn initialize_user_profile(
       let created_at = birl.to_iso8601(now)
 
       let profile_input =
-        graphql.ProfileInput(
-          display_name: display_name,
+        create_profile_gql.OrgAtmosphereconfProfileInput(
+          display_name: Some(display_name),
           description: description,
           avatar: avatar,
-          created_at: created_at,
+          created_at: Some(created_at),
+          home_town: None,
+          interests: None,
         )
 
       case graphql.create_profile(config, profile_input) {

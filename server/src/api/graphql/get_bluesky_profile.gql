@@ -1,0 +1,15 @@
+query GetBskyProfile($did: String!) {
+    appBskyActorProfiles(where: { did: { eq: $did } }, first: 1) {
+        edges {
+            node {
+                displayName
+                description
+                avatar {
+                    ref
+                    mimeType
+                    size
+                }
+            }
+        }
+    }
+}

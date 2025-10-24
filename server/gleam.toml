@@ -29,6 +29,8 @@ sqlight = ">= 1.0.2 and < 2.0.0"
 envoy = ">= 1.0.2 and < 2.0.0"
 dotenv_gleam = ">= 2.0.1 and < 3.0.0"
 birl = ">= 1.0.0 and < 2.0.0"
+squall = { git = "https://github.com/bigmoves/squall.git", ref = "458e03a" }
+# squall = { path = "../../squall" } local testing
 
 [erlang]
 extra_applications = ["inets", "ssl"]

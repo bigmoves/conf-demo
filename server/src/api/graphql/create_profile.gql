@@ -1,0 +1,5 @@
+mutation CreateProfile($input: OrgAtmosphereconfProfileInput!, $rkey: String) {
+    createOrgAtmosphereconfProfile(input: $input, rkey: $rkey) {
+        id
+    }
+}

@@ -1,0 +1,682 @@
+"""
+Indicates that an Input Object is a OneOf Input Object (and thus requires exactly one of its field be provided)
+"""
+directive @oneOf on INPUT_OBJECT
+
+"""
+Provides a scalar specification URL for specifying the behavior of custom scalar types.
+"""
+directive @specifiedBy(
+  """URL that specifies the behavior of this scalar."""
+  url: String!
+) on SCALAR
+
+input AggregationOrderBy {
+  count: SortDirection
+}
+
+type AppBskyActorProfile {
+  id: ID!
+  uri: String!
+  cid: String!
+  did: String!
+  indexedAt: String!
+  actorHandle: String
+  avatar: Blob
+  banner: Blob
+  createdAt: String
+  description: String
+  displayName: String
+  joinedViaStarterPack: JSON
+  labels: JSON
+  pinnedPost: JSON
+  pronouns: String
+  website: String
+  orgAtmosphereconfProfile: OrgAtmosphereconfProfile
+  orgAtmosphereconfProfiles(limit: Int): [OrgAtmosphereconfProfile!]!
+  orgAtmosphereconfProfilesCount: Int!
+  appBskyActorProfiles(limit: Int): [AppBskyActorProfile!]!
+  appBskyActorProfilesCount: Int!
+}
+
+type AppBskyActorProfileAggregated {
+  avatar: JSON
+  banner: JSON
+  createdAt: JSON
+  description: JSON
+  displayName: JSON
+  joinedViaStarterPack: JSON
+  labels: JSON
+  pinnedPost: JSON
+  pronouns: JSON
+  website: JSON
+  count: Int!
+}
+
+type AppBskyActorProfileConnection {
+  totalCount: Int!
+  pageInfo: PageInfo!
+  edges: [AppBskyActorProfileEdge!]!
+  nodes: [AppBskyActorProfile!]!
+}
+
+type AppBskyActorProfileEdge {
+  node: AppBskyActorProfile!
+  cursor: String!
+}
+
+enum AppBskyActorProfileGroupByField {
+  indexedAt
+  avatar
+  banner
+  createdAt
+  description
+  displayName
+  joinedViaStarterPack
+  labels
+  pinnedPost
+  pronouns
+  website
+}
+
+input AppBskyActorProfileGroupByFieldInput {
+  field: AppBskyActorProfileGroupByField!
+  interval: DateInterval
+}
+
+input AppBskyActorProfileInput {
+  avatar: JSON
+  banner: JSON
+  createdAt: String
+  description: String
+  displayName: String
+  joinedViaStarterPack: JSON
+  labels: JSON
+  pinnedPost: JSON
+  pronouns: String
+  website: String
+}
+
+input AppBskyActorProfileSortFieldInput {
+  field: AppBskyActorProfileGroupByField!
+  direction: SortDirection
+}
+
+input AppBskyActorProfileWhereInput {
+  indexedAt: DateTimeFilter
+  uri: StringFilter
+  cid: StringFilter
+  did: StringFilter
+  collection: StringFilter
+  actorHandle: StringFilter
+  avatar: StringFilter
+  banner: StringFilter
+  createdAt: StringFilter
+  description: StringFilter
+  displayName: StringFilter
+  joinedViaStarterPack: StringFilter
+  labels: StringFilter
+  pinnedPost: StringFilter
+  pronouns: StringFilter
+  website: StringFilter
+  json: StringFilter
+  and: [AppBskyActorProfileWhereInput]
+  or: [AppBskyActorProfileWhereInput]
+}
+
+type Blob {
+  ref: String!
+  mimeType: String!
+  size: Int!
+
+  """
+  Generate CDN URL for the blob with the specified preset (avatar, banner, feed_thumbnail, feed_fullsize)
+  """
+  url(preset: String): String!
+}
+
+type BlobUploadResponse {
+  blob: Blob!
+}
+
+type CollectionSummary {
+  collection: String!
+  estimatedRepos: Int!
+  isExternal: Boolean!
+}
+
+type ComAtprotoRepoStrongRef {
+  id: ID!
+  did: String!
+  indexedAt: String!
+  actorHandle: String
+  cid: String!
+  uri: String!
+  orgAtmosphereconfProfile: OrgAtmosphereconfProfile
+  appBskyActorProfile: AppBskyActorProfile
+  orgAtmosphereconfProfiles(limit: Int): [OrgAtmosphereconfProfile!]!
+  orgAtmosphereconfProfilesCount: Int!
+  appBskyActorProfiles(limit: Int): [AppBskyActorProfile!]!
+  appBskyActorProfilesCount: Int!
+}
+
+type ComAtprotoRepoStrongRefAggregated {
+  cid: JSON
+  uri: JSON
+  count: Int!
+}
+
+type ComAtprotoRepoStrongRefConnection {
+  totalCount: Int!
+  pageInfo: PageInfo!
+  edges: [ComAtprotoRepoStrongRefEdge!]!
+  nodes: [ComAtprotoRepoStrongRef!]!
+}
+
+type ComAtprotoRepoStrongRefEdge {
+  node: ComAtprotoRepoStrongRef!
+  cursor: String!
+}
+
+enum ComAtprotoRepoStrongRefGroupByField {
+  indexedAt
+  cid
+  uri
+}
+
+input ComAtprotoRepoStrongRefGroupByFieldInput {
+  field: ComAtprotoRepoStrongRefGroupByField!
+  interval: DateInterval
+}
+
+input ComAtprotoRepoStrongRefInput {
+  cid: String!
+  uri: String!
+}
+
+input ComAtprotoRepoStrongRefSortFieldInput {
+  field: ComAtprotoRepoStrongRefGroupByField!
+  direction: SortDirection
+}
+
+input ComAtprotoRepoStrongRefWhereInput {
+  indexedAt: DateTimeFilter
+  did: StringFilter
+  collection: StringFilter
+  actorHandle: StringFilter
+  cid: StringFilter
+  uri: StringFilter
+  json: StringFilter
+  and: [ComAtprotoRepoStrongRefWhereInput]
+  or: [ComAtprotoRepoStrongRefWhereInput]
+}
+
+type CommunityLexiconLocationHthree {
+  name: String
+  value: String
+}
+
+type CommunityLexiconLocationHthreeAggregated {
+  name: JSON
+  value: JSON
+  count: Int!
+}
+
+type CommunityLexiconLocationHthreeConnection {
+  totalCount: Int!
+  pageInfo: PageInfo!
+  edges: [CommunityLexiconLocationHthreeEdge!]!
+  nodes: [CommunityLexiconLocationHthree!]!
+}
+
+type CommunityLexiconLocationHthreeEdge {
+  node: CommunityLexiconLocationHthree!
+  cursor: String!
+}
+
+enum CommunityLexiconLocationHthreeGroupByField {
+  indexedAt
+  name
+  value
+}
+
+input CommunityLexiconLocationHthreeGroupByFieldInput {
+  field: CommunityLexiconLocationHthreeGroupByField!
+  interval: DateInterval
+}
+
+input CommunityLexiconLocationHthreeInput {
+  name: String
+  value: String!
+}
+
+input CommunityLexiconLocationHthreeSortFieldInput {
+  field: CommunityLexiconLocationHthreeGroupByField!
+  direction: SortDirection
+}
+
+input CommunityLexiconLocationHthreeWhereInput {
+  indexedAt: DateTimeFilter
+  uri: StringFilter
+  cid: StringFilter
+  did: StringFilter
+  collection: StringFilter
+  actorHandle: StringFilter
+  name: StringFilter
+  value: StringFilter
+  json: StringFilter
+  and: [CommunityLexiconLocationHthreeWhereInput]
+  or: [CommunityLexiconLocationHthreeWhereInput]
+}
+
+enum DateInterval {
+  second
+  minute
+  hour
+  day
+  week
+  month
+  quarter
+  year
+}
+
+input DateTimeFilter {
+  eq: String
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
+type DeleteSliceRecordsOutput {
+  message: String!
+  recordsDeleted: Int!
+  actorsDeleted: Int!
+}
+
+type JetstreamLogEntry {
+  id: String!
+  createdAt: String!
+  logType: String!
+  jobId: String
+  userDid: String
+  sliceUri: String
+  level: String!
+  message: String!
+  metadata: JSON
+}
+
+scalar JSON
+
+type Mutation {
+  """Sync user collections for a given DID"""
+  syncUserCollections(did: String!): SyncResult!
+
+  """Create a new org.atmosphereconf.profile record"""
+  createOrgAtmosphereconfProfile(input: OrgAtmosphereconfProfileInput!, rkey: String): OrgAtmosphereconfProfile!
+
+  """Update a org.atmosphereconf.profile record"""
+  updateOrgAtmosphereconfProfile(rkey: String!, input: OrgAtmosphereconfProfileInput!): OrgAtmosphereconfProfile!
+
+  """Delete a org.atmosphereconf.profile record"""
+  deleteOrgAtmosphereconfProfile(rkey: String!): OrgAtmosphereconfProfile!
+
+  """Create a new community.lexicon.location.hthree record"""
+  createCommunityLexiconLocationHthree(input: CommunityLexiconLocationHthreeInput!, rkey: String): CommunityLexiconLocationHthree!
+
+  """Update a community.lexicon.location.hthree record"""
+  updateCommunityLexiconLocationHthree(rkey: String!, input: CommunityLexiconLocationHthreeInput!): CommunityLexiconLocationHthree!
+
+  """Delete a community.lexicon.location.hthree record"""
+  deleteCommunityLexiconLocationHthree(rkey: String!): CommunityLexiconLocationHthree!
+
+  """Create a new app.bsky.actor.profile record"""
+  createAppBskyActorProfile(input: AppBskyActorProfileInput!, rkey: String): AppBskyActorProfile!
+
+  """Update a app.bsky.actor.profile record"""
+  updateAppBskyActorProfile(rkey: String!, input: AppBskyActorProfileInput!): AppBskyActorProfile!
+
+  """Delete a app.bsky.actor.profile record"""
+  deleteAppBskyActorProfile(rkey: String!): AppBskyActorProfile!
+
+  """Create a new com.atproto.repo.strongRef record"""
+  createComAtprotoRepoStrongRef(input: ComAtprotoRepoStrongRefInput!, rkey: String): ComAtprotoRepoStrongRef!
+
+  """Update a com.atproto.repo.strongRef record"""
+  updateComAtprotoRepoStrongRef(rkey: String!, input: ComAtprotoRepoStrongRefInput!): ComAtprotoRepoStrongRef!
+
+  """Delete a com.atproto.repo.strongRef record"""
+  deleteComAtprotoRepoStrongRef(rkey: String!): ComAtprotoRepoStrongRef!
+
+  """Start a sync job to backfill collections from the ATProto relay"""
+  startSync(slice: String, collections: [String], externalCollections: [String], repos: [String], limitPerRepo: Int, skipValidation: Boolean, maxRepos: Int): StartSyncOutput!
+
+  """Cancel a pending or running sync job"""
+  cancelJob(jobId: String!): Boolean!
+
+  """Delete a sync job from the database"""
+  deleteJob(id: ID!): ID
+
+  """Upload a blob to the user's AT Protocol repository"""
+  uploadBlob(data: String!, mimeType: String!): BlobUploadResponse!
+
+  """Register a new OAuth client for a slice"""
+  createOAuthClient(sliceUri: String!, clientName: String!, redirectUris: [String!]!, scope: String!, clientUri: String, logoUri: String, tosUri: String, policyUri: String): OAuthClient!
+
+  """Update an OAuth client"""
+  updateOAuthClient(clientId: String!, clientName: String, redirectUris: [String], scope: String, clientUri: String, logoUri: String, tosUri: String, policyUri: String): OAuthClient!
+
+  """Delete an OAuth client"""
+  deleteOAuthClient(clientId: String!): Boolean!
+
+  """
+  Delete all records and actors from a slice index. Requires authentication and slice ownership.
+  """
+  deleteSliceRecords(slice: String): DeleteSliceRecordsOutput!
+}
+
+type OAuthClient {
+  clientId: String!
+  clientSecret: String
+  clientName: String!
+  redirectUris: [String!]!
+  grantTypes: [String!]!
+  responseTypes: [String!]!
+  scope: String
+  clientUri: String
+  logoUri: String
+  tosUri: String
+  policyUri: String
+  createdAt: String!
+  createdByDid: String!
+}
+
+type OrgAtmosphereconfProfile {
+  id: ID!
+  uri: String!
+  cid: String!
+  did: String!
+  indexedAt: String!
+  actorHandle: String
+  avatar: Blob
+  createdAt: String
+  description: String
+  displayName: String
+  homeTown: CommunityLexiconLocationHthree
+  interests: [String]
+  appBskyActorProfile: AppBskyActorProfile
+  orgAtmosphereconfProfiles(limit: Int): [OrgAtmosphereconfProfile!]!
+  orgAtmosphereconfProfilesCount: Int!
+  appBskyActorProfiles(limit: Int): [AppBskyActorProfile!]!
+  appBskyActorProfilesCount: Int!
+}
+
+type OrgAtmosphereconfProfileAggregated {
+  avatar: JSON
+  createdAt: JSON
+  description: JSON
+  displayName: JSON
+  homeTown: JSON
+  interests: JSON
+  count: Int!
+}
+
+type OrgAtmosphereconfProfileConnection {
+  totalCount: Int!
+  pageInfo: PageInfo!
+  edges: [OrgAtmosphereconfProfileEdge!]!
+  nodes: [OrgAtmosphereconfProfile!]!
+}
+
+type OrgAtmosphereconfProfileEdge {
+  node: OrgAtmosphereconfProfile!
+  cursor: String!
+}
+
+enum OrgAtmosphereconfProfileGroupByField {
+  indexedAt
+  avatar
+  createdAt
+  description
+  displayName
+  homeTown
+  interests
+}
+
+input OrgAtmosphereconfProfileGroupByFieldInput {
+  field: OrgAtmosphereconfProfileGroupByField!
+  interval: DateInterval
+}
+
+input OrgAtmosphereconfProfileInput {
+  avatar: JSON
+  createdAt: String
+  description: String
+  displayName: String
+  homeTown: JSON
+  interests: [String]
+}
+
+input OrgAtmosphereconfProfileSortFieldInput {
+  field: OrgAtmosphereconfProfileGroupByField!
+  direction: SortDirection
+}
+
+input OrgAtmosphereconfProfileWhereInput {
+  indexedAt: DateTimeFilter
+  uri: StringFilter
+  cid: StringFilter
+  did: StringFilter
+  collection: StringFilter
+  actorHandle: StringFilter
+  avatar: StringFilter
+  createdAt: StringFilter
+  description: StringFilter
+  displayName: StringFilter
+  homeTown: StringFilter
+  interests: StringFilter
+  json: StringFilter
+  and: [OrgAtmosphereconfProfileWhereInput]
+  or: [OrgAtmosphereconfProfileWhereInput]
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Query {
+  """Query org.atmosphereconf.profile records"""
+  orgAtmosphereconfProfiles(first: Int, after: String, last: Int, before: String, sortBy: [OrgAtmosphereconfProfileSortFieldInput], where: OrgAtmosphereconfProfileWhereInput): OrgAtmosphereconfProfileConnection!
+
+  """
+  Aggregated query for org.atmosphereconf.profile records with GROUP BY support
+  """
+  orgAtmosphereconfProfilesAggregated(groupBy: [OrgAtmosphereconfProfileGroupByFieldInput!], where: OrgAtmosphereconfProfileWhereInput, orderBy: AggregationOrderBy, limit: Int): [OrgAtmosphereconfProfileAggregated!]!
+
+  """Query community.lexicon.location.hthree records"""
+  communityLexiconLocationHthrees(first: Int, after: String, last: Int, before: String, sortBy: [CommunityLexiconLocationHthreeSortFieldInput], where: CommunityLexiconLocationHthreeWhereInput): CommunityLexiconLocationHthreeConnection!
+
+  """
+  Aggregated query for community.lexicon.location.hthree records with GROUP BY support
+  """
+  communityLexiconLocationHthreesAggregated(groupBy: [CommunityLexiconLocationHthreeGroupByFieldInput!], where: CommunityLexiconLocationHthreeWhereInput, orderBy: AggregationOrderBy, limit: Int): [CommunityLexiconLocationHthreeAggregated!]!
+
+  """Query app.bsky.actor.profile records"""
+  appBskyActorProfiles(first: Int, after: String, last: Int, before: String, sortBy: [AppBskyActorProfileSortFieldInput], where: AppBskyActorProfileWhereInput): AppBskyActorProfileConnection!
+
+  """
+  Aggregated query for app.bsky.actor.profile records with GROUP BY support
+  """
+  appBskyActorProfilesAggregated(groupBy: [AppBskyActorProfileGroupByFieldInput!], where: AppBskyActorProfileWhereInput, orderBy: AggregationOrderBy, limit: Int): [AppBskyActorProfileAggregated!]!
+
+  """Query com.atproto.repo.strongRef records"""
+  comAtprotoRepoStrongRefs(first: Int, after: String, last: Int, before: String, sortBy: [ComAtprotoRepoStrongRefSortFieldInput], where: ComAtprotoRepoStrongRefWhereInput): ComAtprotoRepoStrongRefConnection!
+
+  """
+  Aggregated query for com.atproto.repo.strongRef records with GROUP BY support
+  """
+  comAtprotoRepoStrongRefsAggregated(groupBy: [ComAtprotoRepoStrongRefGroupByFieldInput!], where: ComAtprotoRepoStrongRefWhereInput, orderBy: AggregationOrderBy, limit: Int): [ComAtprotoRepoStrongRefAggregated!]!
+
+  """
+  Get logs from the Jetstream real-time indexing service, optionally filtered by slice
+  """
+  jetstreamLogs(slice: String, limit: Int): [JetstreamLogEntry!]!
+
+  """Get status of a specific sync job"""
+  syncJob(jobId: String!): SyncJob
+
+  """Get sync job history for a slice"""
+  syncJobs(slice: String, limit: Int): [SyncJob!]!
+
+  """Get logs for a specific sync job"""
+  syncJobLogs(jobId: String!, limit: Int): [JetstreamLogEntry!]!
+
+  """Get summary of repos that would be synced based on collection filters"""
+  getSyncSummary(slice: String!, collections: [String], externalCollections: [String], repos: [String]): SyncSummary!
+
+  """
+  Get sparkline data for multiple slices showing record indexing activity over time
+  """
+  sparklines(slices: [String!]!, interval: String, duration: String): [SliceSparkline!]!
+
+  """
+  Query records across all collections in a slice with filtering and pagination.
+  Provide either sliceUri or both actorHandle and rkey.
+  """
+  sliceRecords(sliceUri: String, actorHandle: String, rkey: String, first: Int, after: String, where: SliceRecordsWhereInput): SliceRecordsConnection!
+
+  """Get all OAuth clients for a slice"""
+  oauthClients(slice: String): [OAuthClient!]!
+}
+
+type SliceRecord {
+  uri: String!
+  cid: String!
+  did: String!
+  collection: String!
+  value: String!
+  indexedAt: String!
+}
+
+type SliceRecordEdge {
+  node: SliceRecord!
+  cursor: String!
+}
+
+type SliceRecordsConnection {
+  totalCount: Int!
+  edges: [SliceRecordEdge!]!
+  pageInfo: PageInfo!
+}
+
+input SliceRecordsWhereInput {
+  collection: StringFilter
+  did: StringFilter
+  uri: StringFilter
+  cid: StringFilter
+  indexedAt: DateTimeFilter
+  json: StringFilter
+  or: [SliceRecordsWhereInput]
+}
+
+type SliceSparkline {
+  sliceUri: String!
+  points: [SparklinePoint!]!
+}
+
+enum SortDirection {
+  asc
+  desc
+}
+
+type SparklinePoint {
+  timestamp: String!
+  count: Int!
+}
+
+type StartSyncOutput {
+  jobId: String!
+  message: String!
+}
+
+input StringFilter {
+  eq: String
+  in: [String]
+  contains: String
+  fuzzy: String
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
+type Subscription {
+  """Subscribe to org.atmosphereconf.profile record creation events"""
+  orgAtmosphereconfProfileCreated: OrgAtmosphereconfProfile!
+
+  """Subscribe to org.atmosphereconf.profile record update events"""
+  orgAtmosphereconfProfileUpdated: OrgAtmosphereconfProfile!
+
+  """
+  Subscribe to org.atmosphereconf.profile record deletion events. Returns the URI of deleted records.
+  """
+  orgAtmosphereconfProfileDeleted: String!
+
+  """Subscribe to app.bsky.actor.profile record creation events"""
+  appBskyActorProfileCreated: AppBskyActorProfile!
+
+  """Subscribe to app.bsky.actor.profile record update events"""
+  appBskyActorProfileUpdated: AppBskyActorProfile!
+
+  """
+  Subscribe to app.bsky.actor.profile record deletion events. Returns the URI of deleted records.
+  """
+  appBskyActorProfileDeleted: String!
+
+  """Subscribe to new Jetstream log entries, optionally filtered by slice"""
+  jetstreamLogsCreated(slice: String): JetstreamLogEntry!
+
+  """Subscribe to sync job status updates"""
+  syncJobUpdated(jobId: String, slice: String): SyncJob!
+}
+
+type SyncJob {
+  id: ID!
+  jobId: String!
+  sliceUri: String!
+  status: String!
+  createdAt: String!
+  startedAt: String
+  completedAt: String
+  result: SyncJobResult
+  error: String
+  retryCount: Int!
+}
+
+type SyncJobResult {
+  success: Boolean!
+  totalRecords: Int!
+  collectionsSynced: [String!]!
+  reposProcessed: Int!
+  message: String!
+}
+
+type SyncResult {
+  success: Boolean!
+  reposProcessed: Int!
+  recordsSynced: Int!
+  timedOut: Boolean!
+  message: String!
+}
+
+type SyncSummary {
+  totalRepos: Int!
+  cappedRepos: Int!
+  wouldBeCapped: Boolean!
+  appliedLimit: Int!
+  collectionsSummary: [CollectionSummary!]!
+}
+

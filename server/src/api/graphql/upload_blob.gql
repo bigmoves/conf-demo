@@ -1,0 +1,9 @@
+mutation UploadBlob($data: String!, $mimeType: String!) {
+  uploadBlob(data: $data, mimeType: $mimeType) {
+    blob {
+      ref
+      mimeType
+      size
+    }
+  }
+}
