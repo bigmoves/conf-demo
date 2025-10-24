@@ -17,7 +17,9 @@ pub fn view(current_user: Option(layout.User)) -> Element(msg) {
       case current_user {
         option.Some(user) -> [
           html.p([attribute.class("text-zinc-400 mb-4")], [
-            html.text("Welcome back! Edit your profile to connect with other attendees"),
+            html.text(
+              "Welcome back! Edit your profile to connect with other attendees",
+            ),
           ]),
           html.a([attribute.href("/profile/" <> user.handle <> "/edit")], [
             button.button(
@@ -29,7 +31,7 @@ pub fn view(current_user: Option(layout.User)) -> Element(msg) {
           ]),
         ]
         option.None -> [
-          html.p([attribute.class("text-zinc-400")], [
+          html.p([attribute.class("text-zinc-400 mb-4")], [
             html.text("Create your profile to connect with other attendees"),
           ]),
           html.a([attribute.href("/login")], [
