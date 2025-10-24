@@ -79,8 +79,14 @@ pub fn main() {
   let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
 
+  // Get database URL from environment or default to ./sessions.db
+  let database_url = case envoy.get("DATABASE_URL") {
+    Ok(url) -> url
+    Error(_) -> "./sessions.db"
+  }
+
   // Initialize database
-  use db <- sqlight.with_connection("./sessions.db")
+  use db <- sqlight.with_connection(database_url)
   let assert Ok(_) = session.init_db(db)
 
   // Get host from environment or default to 127.0.0.1
