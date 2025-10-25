@@ -5,3 +5,4 @@ erl_crash.dump
 *db*
 .env
 .DS_Store
+.claude
