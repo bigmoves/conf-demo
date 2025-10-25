@@ -5,6 +5,8 @@ import lustre/element.{type Element}
 import lustre/element/html
 import shared/profile.{type Profile}
 import ui/avatar
+import ui/button
+import ui/icon
 
 pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
   html.div([attribute.class("space-y-8")], [
@@ -50,14 +52,10 @@ pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
         option.Some(profile_handle), option.Some(user_handle)
           if profile_handle == user_handle
         ->
-          html.a(
-            [
-              attribute.href("/profile/" <> profile_handle <> "/edit"),
-              attribute.class(
-                "px-4 py-2 text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded transition-colors cursor-pointer",
-              ),
-            ],
-            [html.text("Edit Profile")],
+          button.icon_link(
+            [attribute.href("/profile/" <> profile_handle <> "/edit")],
+            button.IconLg,
+            [icon.icon("settings", icon.Lg, [])],
           )
         _, _ -> element.none()
       },

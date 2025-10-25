@@ -7,12 +7,19 @@ pub type Variant {
   Primary
   Link
   Danger
+  Ghost
 }
 
 pub type Size {
   Sm
   Md
   Lg
+}
+
+pub type IconSize {
+  IconSm
+  IconMd
+  IconLg
 }
 
 pub fn button(
@@ -34,6 +41,7 @@ pub fn button(
       "bg-red-900 text-red-100 border border-red-800 hover:bg-red-800 hover:border-red-700 rounded"
     Default ->
       "text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-300 rounded"
+    Ghost -> "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 rounded"
   }
 
   let base_classes =
@@ -43,4 +51,40 @@ pub fn button(
     <> " transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 
   html.button([attribute.class(base_classes), ..attributes], children)
+}
+
+pub fn icon_button(
+  attributes: List(Attribute(msg)),
+  icon_size: IconSize,
+  children: List(Element(msg)),
+) -> Element(msg) {
+  let size_classes = case icon_size {
+    IconSm -> "p-1"
+    IconMd -> "p-2"
+    IconLg -> "p-3"
+  }
+
+  let base_classes =
+    size_classes
+    <> " text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+
+  html.button([attribute.class(base_classes), ..attributes], children)
+}
+
+pub fn icon_link(
+  attributes: List(Attribute(msg)),
+  icon_size: IconSize,
+  children: List(Element(msg)),
+) -> Element(msg) {
+  let size_classes = case icon_size {
+    IconSm -> "p-1"
+    IconMd -> "p-2"
+    IconLg -> "p-3"
+  }
+
+  let base_classes =
+    size_classes
+    <> " text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 rounded transition-colors inline-flex items-center justify-center"
+
+  html.a([attribute.class(base_classes), ..attributes], children)
 }
