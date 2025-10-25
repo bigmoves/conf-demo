@@ -21,18 +21,25 @@ pub type SyncUserCollectionsResponse {
   SyncUserCollectionsResponse(sync_user_collections: SyncResult)
 }
 
-pub fn sync_user_collections_response_decoder() -> decode.Decoder(SyncUserCollectionsResponse) {
-  use sync_user_collections <- decode.field("syncUserCollections", sync_result_decoder())
+pub fn sync_user_collections_response_decoder() -> decode.Decoder(
+  SyncUserCollectionsResponse,
+) {
+  use sync_user_collections <- decode.field(
+    "syncUserCollections",
+    sync_result_decoder(),
+  )
   decode.success(SyncUserCollectionsResponse(
     sync_user_collections: sync_user_collections,
   ))
 }
 
-pub fn sync_user_collections(client: squall.Client, did: String) -> Result(SyncUserCollectionsResponse, String) {
+pub fn sync_user_collections(
+  client: squall.Client,
+  did: String,
+) -> Result(SyncUserCollectionsResponse, String) {
   let query =
     "mutation SyncUserCollections($did: String!) { syncUserCollections(did: $did) { success message } }"
-  let variables =
-    json.object([#("did", json.string(did))])
+  let variables = json.object([#("did", json.string(did))])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

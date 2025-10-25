@@ -22,7 +22,8 @@ pub fn view(current_model: Model) -> Element(Msg) {
       model.Attendees -> {
         // Read from cache
         let query_key_str = query.to_string(query.AttendeesQuery)
-        let query_status = cache.get_query_status(current_model.cache, query_key_str)
+        let query_status =
+          cache.get_query_status(current_model.cache, query_key_str)
 
         case query_status {
           cache.Idle | cache.Fetching -> attendees.view_loading()
@@ -36,7 +37,8 @@ pub fn view(current_model: Model) -> Element(Msg) {
       model.Profile(handle: handle) -> {
         // Read profile from cache
         let query_key_str = query.to_string(query.ProfileQuery(handle))
-        let query_status = cache.get_query_status(current_model.cache, query_key_str)
+        let query_status =
+          cache.get_query_status(current_model.cache, query_key_str)
         let profile_from_cache = cache.get_profile(current_model.cache, handle)
 
         case profile_from_cache, query_status {
@@ -73,7 +75,8 @@ pub fn view(current_model: Model) -> Element(Msg) {
         // Read profile from cache
         let profile_from_cache = cache.get_profile(current_model.cache, handle)
         let query_key_str = query.to_string(query.ProfileQuery(handle))
-        let query_status = cache.get_query_status(current_model.cache, query_key_str)
+        let query_status =
+          cache.get_query_status(current_model.cache, query_key_str)
 
         case profile_from_cache, query_status {
           option.Some(p), _ ->

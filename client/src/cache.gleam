@@ -99,7 +99,8 @@ pub fn get_all_profiles(cache: Cache) -> List(Profile) {
 pub fn set_profile(cache: Cache, profile: Profile) -> Cache {
   case profile.handle {
     Some(handle) -> {
-      let updated_profiles = dict.insert(cache.profile_entities, handle, profile)
+      let updated_profiles =
+        dict.insert(cache.profile_entities, handle, profile)
       Cache(..cache, profile_entities: updated_profiles)
     }
     None -> cache
@@ -224,10 +225,10 @@ pub fn apply_optimistic_profile_update(
   let updated_cache = set_profile(cache, optimistic_profile)
 
   // Track the update for potential rollback
-  Cache(
-    ..updated_cache,
-    optimistic_updates: [update, ..cache.optimistic_updates],
-  )
+  Cache(..updated_cache, optimistic_updates: [
+    update,
+    ..cache.optimistic_updates
+  ])
 }
 
 /// Commit an optimistic update (remove from rollback stack)

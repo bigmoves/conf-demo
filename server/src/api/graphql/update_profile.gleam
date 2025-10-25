@@ -4,9 +4,9 @@ import gleam/http/request
 import gleam/httpc
 import gleam/json
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import squall
-import gleam/option.{type Option, Some, None}
 
 pub type OrgAtmosphereconfProfileInput {
   OrgAtmosphereconfProfileInput(
@@ -19,38 +19,48 @@ pub type OrgAtmosphereconfProfileInput {
   )
 }
 
-fn org_atmosphereconf_profile_input_to_json(input: OrgAtmosphereconfProfileInput) -> json.Json {
-  [{
+fn org_atmosphereconf_profile_input_to_json(
+  input: OrgAtmosphereconfProfileInput,
+) -> json.Json {
+  [
+    {
       case input.avatar {
         Some(val) -> Some(#("avatar", val))
         None -> None
       }
-    }, {
+    },
+    {
       case input.created_at {
         Some(val) -> Some(#("createdAt", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.description {
         Some(val) -> Some(#("description", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.display_name {
         Some(val) -> Some(#("displayName", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.home_town {
         Some(val) -> Some(#("homeTown", val))
         None -> None
       }
-    }, {
+    },
+    {
       case input.interests {
-        Some(val) -> Some(#("interests", json.array(from: val, of: json.string)))
+        Some(val) ->
+          Some(#("interests", json.array(from: val, of: json.string)))
         None -> None
       }
-    }]
+    },
+  ]
   |> list.filter_map(fn(x) {
     case x {
       Some(val) -> Ok(val)
@@ -77,17 +87,31 @@ pub type OrgAtmosphereconfProfile {
   )
 }
 
-pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(OrgAtmosphereconfProfile) {
+pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfile,
+) {
   use id <- decode.field("id", decode.string)
   use uri <- decode.field("uri", decode.string)
   use cid <- decode.field("cid", decode.string)
   use did <- decode.field("did", decode.string)
-  use actor_handle <- decode.field("actorHandle", decode.optional(decode.string))
-  use display_name <- decode.field("displayName", decode.optional(decode.string))
+  use actor_handle <- decode.field(
+    "actorHandle",
+    decode.optional(decode.string),
+  )
+  use display_name <- decode.field(
+    "displayName",
+    decode.optional(decode.string),
+  )
   use description <- decode.field("description", decode.optional(decode.string))
   use avatar <- decode.field("avatar", decode.optional(blob_decoder()))
-  use home_town <- decode.field("homeTown", decode.optional(community_lexicon_location_hthree_decoder()))
-  use interests <- decode.field("interests", decode.optional(decode.list(decode.string)))
+  use home_town <- decode.field(
+    "homeTown",
+    decode.optional(community_lexicon_location_hthree_decoder()),
+  )
+  use interests <- decode.field(
+    "interests",
+    decode.optional(decode.list(decode.string)),
+  )
   use created_at <- decode.field("createdAt", decode.optional(decode.string))
   use indexed_at <- decode.field("indexedAt", decode.string)
   decode.success(OrgAtmosphereconfProfile(
@@ -122,7 +146,9 @@ pub type CommunityLexiconLocationHthree {
   CommunityLexiconLocationHthree(name: Option(String), value: Option(String))
 }
 
-pub fn community_lexicon_location_hthree_decoder() -> decode.Decoder(CommunityLexiconLocationHthree) {
+pub fn community_lexicon_location_hthree_decoder() -> decode.Decoder(
+  CommunityLexiconLocationHthree,
+) {
   use name <- decode.field("name", decode.optional(decode.string))
   use value <- decode.field("value", decode.optional(decode.string))
   decode.success(CommunityLexiconLocationHthree(name: name, value: value))
@@ -134,23 +160,30 @@ pub type UpdateProfileResponse {
   )
 }
 
-pub fn update_profile_response_decoder() -> decode.Decoder(UpdateProfileResponse) {
-  use update_org_atmosphereconf_profile <- decode.field("updateOrgAtmosphereconfProfile", org_atmosphereconf_profile_decoder())
+pub fn update_profile_response_decoder() -> decode.Decoder(
+  UpdateProfileResponse,
+) {
+  use update_org_atmosphereconf_profile <- decode.field(
+    "updateOrgAtmosphereconfProfile",
+    org_atmosphereconf_profile_decoder(),
+  )
   decode.success(UpdateProfileResponse(
     update_org_atmosphereconf_profile: update_org_atmosphereconf_profile,
   ))
 }
 
-pub fn update_profile(client: squall.Client, rkey: String, input: OrgAtmosphereconfProfileInput) -> Result(UpdateProfileResponse, String) {
+pub fn update_profile(
+  client: squall.Client,
+  rkey: String,
+  input: OrgAtmosphereconfProfileInput,
+) -> Result(UpdateProfileResponse, String) {
   let query =
     "mutation UpdateProfile($rkey: String!, $input: OrgAtmosphereconfProfileInput!) { updateOrgAtmosphereconfProfile(rkey: $rkey, input: $input) { id uri cid did actorHandle displayName description avatar { ref mimeType size url } homeTown { name value } interests createdAt indexedAt } }"
   let variables =
-    json.object(
-      [
-        #("rkey", json.string(rkey)),
-        #("input", org_atmosphereconf_profile_input_to_json(input)),
-      ],
-    )
+    json.object([
+      #("rkey", json.string(rkey)),
+      #("input", org_atmosphereconf_profile_input_to_json(input)),
+    ])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

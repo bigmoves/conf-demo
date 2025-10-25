@@ -4,16 +4,21 @@ import gleam/http/request
 import gleam/httpc
 import gleam/json
 import gleam/list
+import gleam/option.{type Option}
 import gleam/result
 import squall
-import gleam/option.{type Option}
 
 pub type OrgAtmosphereconfProfileConnection {
   OrgAtmosphereconfProfileConnection(edges: List(OrgAtmosphereconfProfileEdge))
 }
 
-pub fn org_atmosphereconf_profile_connection_decoder() -> decode.Decoder(OrgAtmosphereconfProfileConnection) {
-  use edges <- decode.field("edges", decode.list(org_atmosphereconf_profile_edge_decoder()))
+pub fn org_atmosphereconf_profile_connection_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfileConnection,
+) {
+  use edges <- decode.field(
+    "edges",
+    decode.list(org_atmosphereconf_profile_edge_decoder()),
+  )
   decode.success(OrgAtmosphereconfProfileConnection(edges: edges))
 }
 
@@ -21,7 +26,9 @@ pub type OrgAtmosphereconfProfileEdge {
   OrgAtmosphereconfProfileEdge(node: OrgAtmosphereconfProfile)
 }
 
-pub fn org_atmosphereconf_profile_edge_decoder() -> decode.Decoder(OrgAtmosphereconfProfileEdge) {
+pub fn org_atmosphereconf_profile_edge_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfileEdge,
+) {
   use node <- decode.field("node", org_atmosphereconf_profile_decoder())
   decode.success(OrgAtmosphereconfProfileEdge(node: node))
 }
@@ -43,17 +50,31 @@ pub type OrgAtmosphereconfProfile {
   )
 }
 
-pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(OrgAtmosphereconfProfile) {
+pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfile,
+) {
   use id <- decode.field("id", decode.string)
   use uri <- decode.field("uri", decode.string)
   use cid <- decode.field("cid", decode.string)
   use did <- decode.field("did", decode.string)
-  use actor_handle <- decode.field("actorHandle", decode.optional(decode.string))
-  use display_name <- decode.field("displayName", decode.optional(decode.string))
+  use actor_handle <- decode.field(
+    "actorHandle",
+    decode.optional(decode.string),
+  )
+  use display_name <- decode.field(
+    "displayName",
+    decode.optional(decode.string),
+  )
   use description <- decode.field("description", decode.optional(decode.string))
   use avatar <- decode.field("avatar", decode.optional(blob_decoder()))
-  use home_town <- decode.field("homeTown", decode.optional(community_lexicon_location_hthree_decoder()))
-  use interests <- decode.field("interests", decode.optional(decode.list(decode.string)))
+  use home_town <- decode.field(
+    "homeTown",
+    decode.optional(community_lexicon_location_hthree_decoder()),
+  )
+  use interests <- decode.field(
+    "interests",
+    decode.optional(decode.list(decode.string)),
+  )
   use created_at <- decode.field("createdAt", decode.optional(decode.string))
   use indexed_at <- decode.field("indexedAt", decode.string)
   decode.success(OrgAtmosphereconfProfile(
@@ -88,7 +109,9 @@ pub type CommunityLexiconLocationHthree {
   CommunityLexiconLocationHthree(name: Option(String), value: Option(String))
 }
 
-pub fn community_lexicon_location_hthree_decoder() -> decode.Decoder(CommunityLexiconLocationHthree) {
+pub fn community_lexicon_location_hthree_decoder() -> decode.Decoder(
+  CommunityLexiconLocationHthree,
+) {
   use name <- decode.field("name", decode.optional(decode.string))
   use value <- decode.field("value", decode.optional(decode.string))
   decode.success(CommunityLexiconLocationHthree(name: name, value: value))
@@ -101,17 +124,21 @@ pub type ListProfilesResponse {
 }
 
 pub fn list_profiles_response_decoder() -> decode.Decoder(ListProfilesResponse) {
-  use org_atmosphereconf_profiles <- decode.field("orgAtmosphereconfProfiles", org_atmosphereconf_profile_connection_decoder())
+  use org_atmosphereconf_profiles <- decode.field(
+    "orgAtmosphereconfProfiles",
+    org_atmosphereconf_profile_connection_decoder(),
+  )
   decode.success(ListProfilesResponse(
     org_atmosphereconf_profiles: org_atmosphereconf_profiles,
   ))
 }
 
-pub fn list_profiles(client: squall.Client) -> Result(ListProfilesResponse, String) {
+pub fn list_profiles(
+  client: squall.Client,
+) -> Result(ListProfilesResponse, String) {
   let query =
     "query ListProfiles { orgAtmosphereconfProfiles { edges { node { id uri cid did actorHandle displayName description avatar { ref mimeType size url(preset: \"avatar\") } homeTown { name value } interests createdAt indexedAt } } } }"
-  let variables =
-    json.object([])
+  let variables = json.object([])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

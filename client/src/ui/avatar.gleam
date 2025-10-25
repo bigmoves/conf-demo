@@ -12,11 +12,7 @@ pub type Size {
   Xl
 }
 
-pub fn avatar(
-  src: Option(String),
-  alt: String,
-  size: Size,
-) -> Element(msg) {
+pub fn avatar(src: Option(String), alt: String, size: Size) -> Element(msg) {
   let size_classes = case size {
     Sm -> "w-8 h-8"
     Md -> "w-12 h-12"
@@ -25,8 +21,7 @@ pub fn avatar(
   }
 
   let base_classes =
-    size_classes
-    <> " rounded-full border-2 border-zinc-700 bg-zinc-800"
+    size_classes <> " rounded-full border-2 border-zinc-700 bg-zinc-800"
 
   case src {
     option.Some(url) ->

@@ -87,7 +87,10 @@ pub fn fetch_profile_with_cache(handle: String) -> Effect(Msg) {
             }
             Error(err) -> {
               io.println("JSON parse error: " <> string.inspect(err))
-              dispatch(model.ProfileQueryError(handle, "Failed to parse profile JSON"))
+              dispatch(model.ProfileQueryError(
+                handle,
+                "Failed to parse profile JSON",
+              ))
             }
           }
         }
@@ -132,7 +135,9 @@ pub fn fetch_attendees_with_cache() -> Effect(Msg) {
             }
             Error(err) -> {
               io.println("JSON parse error: " <> string.inspect(err))
-              dispatch(model.AttendeesQueryError("Failed to parse attendees JSON"))
+              dispatch(model.AttendeesQueryError(
+                "Failed to parse attendees JSON",
+              ))
             }
           }
         }
@@ -161,7 +166,9 @@ pub fn process_file_from_input_effect(input_id: String) -> Effect(Msg) {
       case result {
         Ok(file_data) -> {
           io.println("File processed successfully")
-          dispatch(model.ProfileEditMsg(profile_edit.AvatarFileProcessed(file_data)))
+          dispatch(
+            model.ProfileEditMsg(profile_edit.AvatarFileProcessed(file_data)),
+          )
         }
         Error(err) -> {
           io.println("Failed to process file: " <> err)
@@ -251,16 +258,18 @@ pub fn save_profile_effect(
             Ok(updated_profile) -> {
               io.println("Profile parsed successfully")
               dispatch(
-                model.ProfileEditMsg(profile_edit.SaveCompleted(Ok(updated_profile))),
+                model.ProfileEditMsg(
+                  profile_edit.SaveCompleted(Ok(updated_profile)),
+                ),
               )
             }
             Error(_) -> {
               io.println("Failed to parse profile response")
               dispatch(
                 model.ProfileEditMsg(
-                  profile_edit.SaveCompleted(
-                    Error("Failed to parse updated profile"),
-                  ),
+                  profile_edit.SaveCompleted(Error(
+                    "Failed to parse updated profile",
+                  )),
                 ),
               )
             }
@@ -268,24 +277,21 @@ pub fn save_profile_effect(
         }
         Ok(#(status, text)) -> {
           io.println(
-            "Save failed with status "
-            <> int.to_string(status)
-            <> ": "
-            <> text,
+            "Save failed with status " <> int.to_string(status) <> ": " <> text,
           )
           dispatch(
             model.ProfileEditMsg(
-              profile_edit.SaveCompleted(
-                Error("Failed to save profile (status " <> int.to_string(status) <> ")"),
-              ),
+              profile_edit.SaveCompleted(Error(
+                "Failed to save profile (status "
+                <> int.to_string(status)
+                <> ")",
+              )),
             ),
           )
         }
         Error(err) -> {
           io.println("Save request failed: " <> err)
-          dispatch(
-            model.ProfileEditMsg(profile_edit.SaveCompleted(Error(err))),
-          )
+          dispatch(model.ProfileEditMsg(profile_edit.SaveCompleted(Error(err))))
         }
       }
     })

@@ -36,16 +36,18 @@ pub fn upload_blob_response_decoder() -> decode.Decoder(UploadBlobResponse) {
   decode.success(UploadBlobResponse(upload_blob: upload_blob))
 }
 
-pub fn upload_blob(client: squall.Client, data: String, mime_type: String) -> Result(UploadBlobResponse, String) {
+pub fn upload_blob(
+  client: squall.Client,
+  data: String,
+  mime_type: String,
+) -> Result(UploadBlobResponse, String) {
   let query =
     "mutation UploadBlob($data: String!, $mimeType: String!) { uploadBlob(data: $data, mimeType: $mimeType) { blob { ref mimeType size } } }"
   let variables =
-    json.object(
-      [
-        #("data", json.string(data)),
-        #("mimeType", json.string(mime_type)),
-      ],
-    )
+    json.object([
+      #("data", json.string(data)),
+      #("mimeType", json.string(mime_type)),
+    ])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

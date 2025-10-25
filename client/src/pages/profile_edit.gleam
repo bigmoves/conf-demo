@@ -52,7 +52,8 @@ pub fn update(form_data: FormData, msg: Msg) -> FormData {
     DisplayNameUpdated(value) -> FormData(..form_data, display_name: value)
     DescriptionUpdated(value) -> FormData(..form_data, description: value)
     InterestsUpdated(value) -> FormData(..form_data, interests: value)
-    AvatarFileChanged(_files) -> form_data  // Handled in parent with effect
+    AvatarFileChanged(_files) -> form_data
+    // Handled in parent with effect
     AvatarFileProcessed(file_data) ->
       FormData(
         ..form_data,
@@ -204,9 +205,12 @@ pub fn view(
                   attribute.id("avatar-upload"),
                   attribute.accept(["image/*"]),
                   attribute.class("hidden"),
-                  event.on("change", decode.map(decode.dynamic, fn(_) {
-                    on_msg(AvatarFileChanged([]))
-                  })),
+                  event.on(
+                    "change",
+                    decode.map(decode.dynamic, fn(_) {
+                      on_msg(AvatarFileChanged([]))
+                    }),
+                  ),
                 ]),
               ]),
             ]),
@@ -295,4 +299,3 @@ pub fn view(
     ),
   ])
 }
-

@@ -127,10 +127,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           )
         }
         Error(_err) -> {
-          #(
-            Model(..model, suggestions: [], is_loading: False),
-            effect.none(),
-          )
+          #(Model(..model, suggestions: [], is_loading: False), effect.none())
         }
       }
     }
@@ -218,9 +215,7 @@ fn input_element(
 fn icon_element() -> Element(Msg) {
   html.div(
     [
-      attribute.class(
-        "absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500",
-      ),
+      attribute.class("absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500"),
     ],
     [html.text("📍")],
   )

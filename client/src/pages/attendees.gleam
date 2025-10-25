@@ -43,9 +43,12 @@ fn view_profile_card(p: Profile) -> Element(msg) {
         // Profile info
         html.div([attribute.class("flex-1 min-w-0")], [
           // Display name
-          html.h3([attribute.class("text-lg font-semibold text-white truncate")], [
-            html.text(display_name),
-          ]),
+          html.h3(
+            [attribute.class("text-lg font-semibold text-white truncate")],
+            [
+              html.text(display_name),
+            ],
+          ),
           // Handle
           case p.handle {
             option.Some(h) ->
@@ -78,7 +81,9 @@ fn view_profile_card(p: Profile) -> Element(msg) {
 
 pub fn view_loading() -> Element(msg) {
   html.div([attribute.class("text-center py-12")], [
-    html.p([attribute.class("text-zinc-400")], [html.text("Loading attendees...")]),
+    html.p([attribute.class("text-zinc-400")], [
+      html.text("Loading attendees..."),
+    ]),
   ])
 }
 

@@ -50,14 +50,20 @@ pub fn profile_decoder() -> decode.Decoder(Profile) {
   use cid <- decode.field("cid", decode.string)
   use did <- decode.field("did", decode.string)
   use handle <- decode.field("handle", decode.optional(decode.string))
-  use display_name <- decode.field("display_name", decode.optional(decode.string))
+  use display_name <- decode.field(
+    "display_name",
+    decode.optional(decode.string),
+  )
   use description <- decode.field("description", decode.optional(decode.string))
   use avatar_url <- decode.field("avatar_url", decode.optional(decode.string))
   use avatar_blob <- decode.field(
     "avatar_blob",
     decode.optional(avatar_blob_decoder()),
   )
-  use home_town <- decode.field("home_town", decode.optional(home_town_decoder()))
+  use home_town <- decode.field(
+    "home_town",
+    decode.optional(home_town_decoder()),
+  )
   use interests <- decode.field(
     "interests",
     decode.optional(decode.list(decode.string)),

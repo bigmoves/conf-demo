@@ -86,7 +86,8 @@ fn convert_home_town(
   ht: get_profile_gql.CommunityLexiconLocationHthree,
 ) -> Option(profile.HomeTown) {
   case ht.name, ht.value {
-    Some(name), Some(value) -> Some(profile.HomeTown(name: name, h3_index: value))
+    Some(name), Some(value) ->
+      Some(profile.HomeTown(name: name, h3_index: value))
     _, _ -> None
   }
 }
@@ -96,7 +97,8 @@ fn convert_home_town_from_update(
   ht: update_profile_gql.CommunityLexiconLocationHthree,
 ) -> Option(profile.HomeTown) {
   case ht.name, ht.value {
-    Some(name), Some(value) -> Some(profile.HomeTown(name: name, h3_index: value))
+    Some(name), Some(value) ->
+      Some(profile.HomeTown(name: name, h3_index: value))
     _, _ -> None
   }
 }
@@ -323,7 +325,8 @@ fn convert_home_town_from_list(
   ht: list_profiles_gql.CommunityLexiconLocationHthree,
 ) -> Option(profile.HomeTown) {
   case ht.name, ht.value {
-    Some(name), Some(value) -> Some(profile.HomeTown(name: name, h3_index: value))
+    Some(name), Some(value) ->
+      Some(profile.HomeTown(name: name, h3_index: value))
     _, _ -> None
   }
 }

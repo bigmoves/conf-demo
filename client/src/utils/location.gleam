@@ -23,9 +23,7 @@ pub type LocationData {
 
 /// Search for locations using Nominatim API
 @external(javascript, "../client_ffi.mjs", "searchLocations")
-pub fn search_locations(
-  query: String,
-) -> Promise(Result(List(Dynamic), String))
+pub fn search_locations(query: String) -> Promise(Result(List(Dynamic), String))
 
 /// Convert lat/lon to H3 index
 @external(javascript, "../client_ffi.mjs", "latLonToH3")

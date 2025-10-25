@@ -20,9 +20,7 @@ pub fn view() -> Element(msg) {
             html.label(
               [
                 attribute.for("loginHint"),
-                attribute.class(
-                  "block text-sm font-medium text-zinc-400 mb-2",
-                ),
+                attribute.class("block text-sm font-medium text-zinc-400 mb-2"),
               ],
               [html.text("Handle or PDS Host")],
             ),
@@ -56,9 +54,7 @@ pub fn view() -> Element(msg) {
               attribute.href("https://bsky.app"),
               attribute.target("_blank"),
               attribute.attribute("rel", "noopener noreferrer"),
-              attribute.class(
-                "text-zinc-400 hover:text-zinc-300 underline",
-              ),
+              attribute.class("text-zinc-400 hover:text-zinc-300 underline"),
             ],
             [html.text("Create one on Bluesky")],
           ),

@@ -4,16 +4,21 @@ import gleam/http/request
 import gleam/httpc
 import gleam/json
 import gleam/list
+import gleam/option.{type Option}
 import gleam/result
 import squall
-import gleam/option.{type Option}
 
 pub type AppBskyActorProfileConnection {
   AppBskyActorProfileConnection(edges: List(AppBskyActorProfileEdge))
 }
 
-pub fn app_bsky_actor_profile_connection_decoder() -> decode.Decoder(AppBskyActorProfileConnection) {
-  use edges <- decode.field("edges", decode.list(app_bsky_actor_profile_edge_decoder()))
+pub fn app_bsky_actor_profile_connection_decoder() -> decode.Decoder(
+  AppBskyActorProfileConnection,
+) {
+  use edges <- decode.field(
+    "edges",
+    decode.list(app_bsky_actor_profile_edge_decoder()),
+  )
   decode.success(AppBskyActorProfileConnection(edges: edges))
 }
 
@@ -21,7 +26,9 @@ pub type AppBskyActorProfileEdge {
   AppBskyActorProfileEdge(node: AppBskyActorProfile)
 }
 
-pub fn app_bsky_actor_profile_edge_decoder() -> decode.Decoder(AppBskyActorProfileEdge) {
+pub fn app_bsky_actor_profile_edge_decoder() -> decode.Decoder(
+  AppBskyActorProfileEdge,
+) {
   use node <- decode.field("node", app_bsky_actor_profile_decoder())
   decode.success(AppBskyActorProfileEdge(node: node))
 }
@@ -35,7 +42,10 @@ pub type AppBskyActorProfile {
 }
 
 pub fn app_bsky_actor_profile_decoder() -> decode.Decoder(AppBskyActorProfile) {
-  use display_name <- decode.field("displayName", decode.optional(decode.string))
+  use display_name <- decode.field(
+    "displayName",
+    decode.optional(decode.string),
+  )
   use description <- decode.field("description", decode.optional(decode.string))
   use avatar <- decode.field("avatar", decode.optional(blob_decoder()))
   decode.success(AppBskyActorProfile(
@@ -62,18 +72,25 @@ pub type GetBlueskyProfileResponse {
   )
 }
 
-pub fn get_bluesky_profile_response_decoder() -> decode.Decoder(GetBlueskyProfileResponse) {
-  use app_bsky_actor_profiles <- decode.field("appBskyActorProfiles", app_bsky_actor_profile_connection_decoder())
+pub fn get_bluesky_profile_response_decoder() -> decode.Decoder(
+  GetBlueskyProfileResponse,
+) {
+  use app_bsky_actor_profiles <- decode.field(
+    "appBskyActorProfiles",
+    app_bsky_actor_profile_connection_decoder(),
+  )
   decode.success(GetBlueskyProfileResponse(
     app_bsky_actor_profiles: app_bsky_actor_profiles,
   ))
 }
 
-pub fn get_bluesky_profile(client: squall.Client, did: String) -> Result(GetBlueskyProfileResponse, String) {
+pub fn get_bluesky_profile(
+  client: squall.Client,
+  did: String,
+) -> Result(GetBlueskyProfileResponse, String) {
   let query =
     "query GetBskyProfile($did: String!) { appBskyActorProfiles(where: { did: { eq: $did } }, first: 1) { edges { node { displayName description avatar { ref mimeType size } } } } }"
-  let variables =
-    json.object([#("did", json.string(did))])
+  let variables = json.object([#("did", json.string(did))])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

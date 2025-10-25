@@ -11,8 +11,13 @@ pub type OrgAtmosphereconfProfileConnection {
   OrgAtmosphereconfProfileConnection(edges: List(OrgAtmosphereconfProfileEdge))
 }
 
-pub fn org_atmosphereconf_profile_connection_decoder() -> decode.Decoder(OrgAtmosphereconfProfileConnection) {
-  use edges <- decode.field("edges", decode.list(org_atmosphereconf_profile_edge_decoder()))
+pub fn org_atmosphereconf_profile_connection_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfileConnection,
+) {
+  use edges <- decode.field(
+    "edges",
+    decode.list(org_atmosphereconf_profile_edge_decoder()),
+  )
   decode.success(OrgAtmosphereconfProfileConnection(edges: edges))
 }
 
@@ -20,7 +25,9 @@ pub type OrgAtmosphereconfProfileEdge {
   OrgAtmosphereconfProfileEdge(node: OrgAtmosphereconfProfile)
 }
 
-pub fn org_atmosphereconf_profile_edge_decoder() -> decode.Decoder(OrgAtmosphereconfProfileEdge) {
+pub fn org_atmosphereconf_profile_edge_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfileEdge,
+) {
   use node <- decode.field("node", org_atmosphereconf_profile_decoder())
   decode.success(OrgAtmosphereconfProfileEdge(node: node))
 }
@@ -29,7 +36,9 @@ pub type OrgAtmosphereconfProfile {
   OrgAtmosphereconfProfile(id: String)
 }
 
-pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(OrgAtmosphereconfProfile) {
+pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfile,
+) {
   use id <- decode.field("id", decode.string)
   decode.success(OrgAtmosphereconfProfile(id: id))
 }
@@ -40,18 +49,25 @@ pub type CheckProfileExistsResponse {
   )
 }
 
-pub fn check_profile_exists_response_decoder() -> decode.Decoder(CheckProfileExistsResponse) {
-  use org_atmosphereconf_profiles <- decode.field("orgAtmosphereconfProfiles", org_atmosphereconf_profile_connection_decoder())
+pub fn check_profile_exists_response_decoder() -> decode.Decoder(
+  CheckProfileExistsResponse,
+) {
+  use org_atmosphereconf_profiles <- decode.field(
+    "orgAtmosphereconfProfiles",
+    org_atmosphereconf_profile_connection_decoder(),
+  )
   decode.success(CheckProfileExistsResponse(
     org_atmosphereconf_profiles: org_atmosphereconf_profiles,
   ))
 }
 
-pub fn check_profile_exists(client: squall.Client, did: String) -> Result(CheckProfileExistsResponse, String) {
+pub fn check_profile_exists(
+  client: squall.Client,
+  did: String,
+) -> Result(CheckProfileExistsResponse, String) {
   let query =
     "query CheckProfile($did: String!) { orgAtmosphereconfProfiles(where: { did: { eq: $did } }, first: 1) { edges { node { id } } } }"
-  let variables =
-    json.object([#("did", json.string(did))])
+  let variables = json.object([#("did", json.string(did))])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(

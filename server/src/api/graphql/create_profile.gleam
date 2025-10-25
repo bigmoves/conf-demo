@@ -4,9 +4,9 @@ import gleam/http/request
 import gleam/httpc
 import gleam/json
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import squall
-import gleam/option.{type Option, Some, None}
 
 pub type OrgAtmosphereconfProfileInput {
   OrgAtmosphereconfProfileInput(
@@ -19,38 +19,48 @@ pub type OrgAtmosphereconfProfileInput {
   )
 }
 
-fn org_atmosphereconf_profile_input_to_json(input: OrgAtmosphereconfProfileInput) -> json.Json {
-  [{
+fn org_atmosphereconf_profile_input_to_json(
+  input: OrgAtmosphereconfProfileInput,
+) -> json.Json {
+  [
+    {
       case input.avatar {
         Some(val) -> Some(#("avatar", val))
         None -> None
       }
-    }, {
+    },
+    {
       case input.created_at {
         Some(val) -> Some(#("createdAt", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.description {
         Some(val) -> Some(#("description", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.display_name {
         Some(val) -> Some(#("displayName", json.string(val)))
         None -> None
       }
-    }, {
+    },
+    {
       case input.home_town {
         Some(val) -> Some(#("homeTown", val))
         None -> None
       }
-    }, {
+    },
+    {
       case input.interests {
-        Some(val) -> Some(#("interests", json.array(from: val, of: json.string)))
+        Some(val) ->
+          Some(#("interests", json.array(from: val, of: json.string)))
         None -> None
       }
-    }]
+    },
+  ]
   |> list.filter_map(fn(x) {
     case x {
       Some(val) -> Ok(val)
@@ -64,7 +74,9 @@ pub type OrgAtmosphereconfProfile {
   OrgAtmosphereconfProfile(id: String)
 }
 
-pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(OrgAtmosphereconfProfile) {
+pub fn org_atmosphereconf_profile_decoder() -> decode.Decoder(
+  OrgAtmosphereconfProfile,
+) {
   use id <- decode.field("id", decode.string)
   decode.success(OrgAtmosphereconfProfile(id: id))
 }
@@ -75,23 +87,30 @@ pub type CreateProfileResponse {
   )
 }
 
-pub fn create_profile_response_decoder() -> decode.Decoder(CreateProfileResponse) {
-  use create_org_atmosphereconf_profile <- decode.field("createOrgAtmosphereconfProfile", org_atmosphereconf_profile_decoder())
+pub fn create_profile_response_decoder() -> decode.Decoder(
+  CreateProfileResponse,
+) {
+  use create_org_atmosphereconf_profile <- decode.field(
+    "createOrgAtmosphereconfProfile",
+    org_atmosphereconf_profile_decoder(),
+  )
   decode.success(CreateProfileResponse(
     create_org_atmosphereconf_profile: create_org_atmosphereconf_profile,
   ))
 }
 
-pub fn create_profile(client: squall.Client, input: OrgAtmosphereconfProfileInput, rkey: String) -> Result(CreateProfileResponse, String) {
+pub fn create_profile(
+  client: squall.Client,
+  input: OrgAtmosphereconfProfileInput,
+  rkey: String,
+) -> Result(CreateProfileResponse, String) {
   let query =
     "mutation CreateProfile($input: OrgAtmosphereconfProfileInput!, $rkey: String) { createOrgAtmosphereconfProfile(input: $input, rkey: $rkey) { id } }"
   let variables =
-    json.object(
-      [
-        #("input", org_atmosphereconf_profile_input_to_json(input)),
-        #("rkey", json.string(rkey)),
-      ],
-    )
+    json.object([
+      #("input", org_atmosphereconf_profile_input_to_json(input)),
+      #("rkey", json.string(rkey)),
+    ])
   let body =
     json.object([#("query", json.string(query)), #("variables", variables)])
   use req <- result.try(
