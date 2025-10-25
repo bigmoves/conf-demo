@@ -1,9 +1,10 @@
 import api/graphql
 import api/graphql/create_profile as create_profile_gql
-import birl
 import gleam/io
 import gleam/json
 import gleam/option.{None, Some}
+import gleam/time/duration
+import gleam/time/timestamp
 
 /// Initialize user profile by:
 /// 1. Checking if profile already exists
@@ -74,8 +75,8 @@ pub fn initialize_user_profile(
         _ -> None
       }
 
-      let now = birl.now()
-      let created_at = birl.to_iso8601(now)
+      let now = timestamp.system_time()
+      let created_at = timestamp.to_rfc3339(now, duration.seconds(0))
 
       let profile_input =
         create_profile_gql.OrgAtmosphereconfProfileInput(
