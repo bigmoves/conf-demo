@@ -10,6 +10,14 @@ function toList(array) {
   return list;
 }
 
+/**
+ * Get current time in milliseconds
+ * @returns {number} Current timestamp in milliseconds
+ */
+export function getCurrentTimeMs() {
+  return Date.now();
+}
+
 export function fetchUrl(url) {
   return fetch(url)
     .then((response) => {

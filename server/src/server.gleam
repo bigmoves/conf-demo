@@ -208,8 +208,8 @@ fn handle_request(
     Get, ["profile", handle] -> serve_profile(handle, req, db)
     Get, ["profile", handle, "edit"] -> serve_profile(handle, req, db)
 
-    // Attendees page
-    Get, ["attendees"] -> serve_index(option.None, req, db)
+    // Attendees page - prerender with data
+    Get, ["attendees"] -> serve_attendees(req, db)
 
     // Everything else gets our base HTML
     Get, _ -> serve_index(option.None, req, db)
@@ -219,8 +219,13 @@ fn handle_request(
   }
 }
 
+pub type SSRData {
+  ProfileData(profile.Profile)
+  AttendeesData(List(profile.Profile))
+}
+
 fn serve_index(
-  profile_data: Option(profile.Profile),
+  ssr_data: Option(SSRData),
   req: Request,
   db: sqlight.Connection,
 ) -> Response {
@@ -231,30 +236,30 @@ fn serve_index(
     Error(_) -> None
   }
 
-  let model_script = case profile_data, user_json {
-    option.Some(profile_val), Some(user) ->
+  // Build model script with SSR data
+  let model_fields = case ssr_data {
+    Some(ProfileData(profile_val)) -> [
+      #("profile", profile.profile_to_json(profile_val)),
+    ]
+    Some(AttendeesData(profiles)) -> [
+      #("attendees", json.array(profiles, profile.profile_to_json)),
+    ]
+    None -> []
+  }
+
+  // Add user if authenticated
+  let model_fields = case user_json {
+    Some(user) -> [#("user", user), ..model_fields]
+    None -> model_fields
+  }
+
+  let model_script = case model_fields {
+    [] -> element.none()
+    _ ->
       html.script(
         [attribute.type_("application/json"), attribute.id("model")],
-        json.to_string(
-          json.object([
-            #("profile", profile.profile_to_json(profile_val)),
-            #("user", user),
-          ]),
-        ),
+        json.to_string(json.object(model_fields)),
       )
-    option.Some(profile_val), None ->
-      html.script(
-        [attribute.type_("application/json"), attribute.id("model")],
-        json.to_string(
-          json.object([#("profile", profile.profile_to_json(profile_val))]),
-        ),
-      )
-    None, Some(user) ->
-      html.script(
-        [attribute.type_("application/json"), attribute.id("model")],
-        json.to_string(json.object([#("user", user)])),
-      )
-    None, None -> element.none()
   }
 
   let html =
@@ -396,10 +401,10 @@ fn serve_profile(
 
   wisp.log_info("SSR: Fetching profile for handle: " <> handle)
 
-  let profile_data = case graphql.get_profile_by_handle(config, handle) {
+  let ssr_data = case graphql.get_profile_by_handle(config, handle) {
     Ok(option.Some(profile_val)) -> {
       wisp.log_info("SSR: Profile found for handle: " <> handle)
-      option.Some(profile_val)
+      option.Some(ProfileData(profile_val))
     }
     Ok(option.None) -> {
       wisp.log_warning("SSR: No profile found for handle: " <> handle)
@@ -411,7 +416,34 @@ fn serve_profile(
     }
   }
 
-  serve_index(profile_data, req, db)
+  serve_index(ssr_data, req, db)
+}
+
+fn serve_attendees(req: Request, db: sqlight.Connection) -> Response {
+  // Get access token from session if available
+  let access_token = case session.get_current_user(req, db) {
+    Ok(#(_, _, token)) -> token
+    Error(_) -> ""
+  }
+
+  let config = get_graphql_config(access_token)
+
+  wisp.log_info("SSR: Fetching attendees list")
+
+  let ssr_data = case graphql.list_profiles(config) {
+    Ok(profiles) -> {
+      wisp.log_info(
+        "SSR: Found " <> int.to_string(list.length(profiles)) <> " profiles",
+      )
+      option.Some(AttendeesData(profiles))
+    }
+    Error(err) -> {
+      wisp.log_error("SSR: Error fetching attendees: " <> err)
+      option.None
+    }
+  }
+
+  serve_index(ssr_data, req, db)
 }
 
 fn update_profile_json(
