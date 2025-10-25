@@ -265,6 +265,11 @@ fn serve_index(
   let html =
     html.html([], [
       html.head([], [
+        html.meta([attribute.attribute("charset", "utf-8")]),
+        html.meta([
+          attribute.name("viewport"),
+          attribute.attribute("content", "width=device-width, initial-scale=1"),
+        ]),
         html.title([], "Atmosphere Conf"),
         html.script([attribute.src("https://cdn.tailwindcss.com")], ""),
         html.script(
