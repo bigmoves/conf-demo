@@ -1,5 +1,4 @@
-import api/graphql
-import api/graphql/update_profile as update_profile_gql
+import api/graphql as gql
 import api/profile_init
 import dotenv_gleam
 import envoy
@@ -24,7 +23,9 @@ import lustre/element/html
 import mist
 import oauth/pkce
 import oauth/session
-import shared/profile
+import shared/api/graphql/get_profile
+import shared/api/graphql/update_profile
+import shared/api/types
 import sqlight
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
@@ -220,8 +221,8 @@ fn handle_request(
 }
 
 pub type SSRData {
-  ProfileData(profile.Profile)
-  AttendeesData(List(profile.Profile))
+  ProfileData(types.Profile)
+  AttendeesData(List(types.Profile))
 }
 
 fn serve_index(
@@ -239,10 +240,13 @@ fn serve_index(
   // Build model script with SSR data
   let model_fields = case ssr_data {
     Some(ProfileData(profile_val)) -> [
-      #("profile", profile.profile_to_json(profile_val)),
+      #("profile", get_profile.org_atmosphereconf_profile_to_json(profile_val)),
     ]
     Some(AttendeesData(profiles)) -> [
-      #("attendees", json.array(profiles, profile.profile_to_json)),
+      #(
+        "attendees",
+        json.array(profiles, get_profile.org_atmosphereconf_profile_to_json),
+      ),
     ]
     None -> []
   }
@@ -289,8 +293,8 @@ fn serve_index(
   |> wisp.html_response(200)
 }
 
-fn get_graphql_config(access_token: String) -> graphql.Config {
-  graphql.Config(
+fn get_graphql_config(access_token: String) -> gql.Config {
+  gql.Config(
     api_url: "https://api.slices.network/graphql",
     slice_uri: "at://did:plc:bcgltzqazw5tb6k2g3ttenbj/network.slices.slice/3m3gc7lhwzx2z",
     access_token: access_token,
@@ -336,10 +340,10 @@ fn fetch_profile_json(
 
   wisp.log_info("API: Fetching profile for handle: " <> handle)
 
-  case graphql.get_profile_by_handle(config, handle) {
+  case gql.get_profile_by_handle(config, handle) {
     Ok(option.Some(profile_val)) -> {
       wisp.log_info("API: Profile found for handle: " <> handle)
-      json.to_string(profile.profile_to_json(profile_val))
+      json.to_string(get_profile.org_atmosphereconf_profile_to_json(profile_val))
       |> wisp.json_response(200)
     }
     Ok(option.None) -> {
@@ -372,12 +376,13 @@ fn fetch_attendees_json(req: Request, db: sqlight.Connection) -> Response {
 
   wisp.log_info("API: Fetching all attendees")
 
-  case graphql.list_profiles(config) {
+  case gql.list_profiles(config) {
     Ok(profiles) -> {
       wisp.log_info(
         "API: Found " <> int.to_string(list.length(profiles)) <> " profiles",
       )
-      let profiles_json = json.array(profiles, profile.profile_to_json)
+      let profiles_json =
+        json.array(profiles, get_profile.org_atmosphereconf_profile_to_json)
       json.to_string(profiles_json)
       |> wisp.json_response(200)
     }
@@ -406,7 +411,7 @@ fn serve_profile(
 
   wisp.log_info("SSR: Fetching profile for handle: " <> handle)
 
-  let ssr_data = case graphql.get_profile_by_handle(config, handle) {
+  let ssr_data = case gql.get_profile_by_handle(config, handle) {
     Ok(option.Some(profile_val)) -> {
       wisp.log_info("SSR: Profile found for handle: " <> handle)
       option.Some(ProfileData(profile_val))
@@ -435,7 +440,7 @@ fn serve_attendees(req: Request, db: sqlight.Connection) -> Response {
 
   wisp.log_info("SSR: Fetching attendees list")
 
-  let ssr_data = case graphql.list_profiles(config) {
+  let ssr_data = case gql.list_profiles(config) {
     Ok(profiles) -> {
       wisp.log_info(
         "SSR: Found " <> int.to_string(list.length(profiles)) <> " profiles",
@@ -465,113 +470,47 @@ fn update_profile_json(
   // Parse request body
   use body <- wisp.require_string_body(req)
 
-  // Decode JSON
+  // Helper to decode optional fields that may be missing
+  let optional_field = fn(parsed: decode.Dynamic, path: String, decoder: decode.Decoder(a)) -> Option(a) {
+    decode.run(parsed, decode.at([path], decode.optional(decoder)))
+    |> result.unwrap(None)
+  }
+
+  // Decode JSON using Squall-generated decoders
   let update_result = {
     use parsed <- result.try(
       json.parse(body, decode.dynamic)
       |> result.map_error(fn(_) { "Invalid JSON" }),
     )
 
-    // Extract fields from JSON
-    let display_name = case
-      decode.run(
+    // Decode profile fields
+    let display_name = optional_field(parsed, "displayName", decode.string)
+    let description = optional_field(parsed, "description", decode.string)
+    let home_town =
+      optional_field(
         parsed,
-        decode.at(["display_name"], decode.optional(decode.string)),
+        "homeTown",
+        update_profile.community_lexicon_location_hthree_decoder(),
       )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
+      |> option.map(update_profile.community_lexicon_location_hthree_to_json)
+    let interests = optional_field(parsed, "interests", decode.list(decode.string))
+    let created_at = optional_field(parsed, "createdAt", decode.string)
 
-    let description = case
-      decode.run(
-        parsed,
-        decode.at(["description"], decode.optional(decode.string)),
-      )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
-
-    // Decode home_town as an object with name and value fields
-    let home_town = case
-      decode.run(
-        parsed,
-        decode.at(
-          ["home_town"],
-          decode.optional({
-            use name <- decode.field("name", decode.string)
-            use value <- decode.field("value", decode.string)
-            decode.success(#(name, value))
-          }),
-        ),
-      )
-    {
-      Ok(Some(#(name, value))) -> {
-        // Re-encode as JSON object
-        let json_obj =
-          json.object([
-            #("name", json.string(name)),
-            #("value", json.string(value)),
-          ])
-        Some(json_obj)
-      }
-      _ -> None
-    }
-
-    let interests = case
-      decode.run(
-        parsed,
-        decode.at(["interests"], decode.optional(decode.list(decode.string))),
-      )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
-
-    // Extract avatar data if present
-    let avatar_base64 = case
-      decode.run(
-        parsed,
-        decode.at(["avatar_base64"], decode.optional(decode.string)),
-      )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
-
-    let avatar_mime_type = case
-      decode.run(
-        parsed,
-        decode.at(["avatar_mime_type"], decode.optional(decode.string)),
-      )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
-
-    let created_at = case
-      decode.run(
-        parsed,
-        decode.at(["created_at"], decode.optional(decode.string)),
-      )
-    {
-      Ok(val) -> val
-      Error(_) -> None
-    }
-
-    Ok(#(
-      update_profile_gql.OrgAtmosphereconfProfileInput(
+    let profile_input =
+      update_profile.OrgAtmosphereconfProfileInput(
         display_name: display_name,
         description: description,
         home_town: home_town,
         interests: interests,
         avatar: None,
         created_at: created_at,
-      ),
-      avatar_base64,
-      avatar_mime_type,
-    ))
+      )
+
+    // Extract avatar upload fields separately (not part of GraphQL input)
+    let avatar_base64 = optional_field(parsed, "avatarBase64", decode.string)
+    let avatar_mime_type = optional_field(parsed, "avatarMimeType", decode.string)
+
+    Ok(#(profile_input, avatar_base64, avatar_mime_type))
   }
 
   case update_result {
@@ -580,7 +519,7 @@ fn update_profile_json(
       let avatar_blob = case avatar_base64, avatar_mime_type {
         Some(base64), Some(mime) -> {
           // New avatar uploaded - upload the blob
-          case graphql.upload_blob(config, base64, mime) {
+          case gql.upload_blob(config, base64, mime) {
             Ok(blob) -> Some(blob)
             Error(err) -> {
               wisp.log_error("API: Failed to upload avatar blob: " <> err)
@@ -590,15 +529,14 @@ fn update_profile_json(
         }
         _, _ -> {
           // No new avatar - fetch current profile and use existing avatar blob
-          case graphql.get_profile_by_handle(config, handle) {
+          case gql.get_profile_by_handle(config, handle) {
             Ok(Some(current_profile)) -> {
               // Use existing avatar blob if present
-              case current_profile.avatar_blob {
+              case current_profile.avatar {
                 Some(blob) -> {
-                  // Convert AvatarBlob to JSON for the mutation
+                  // Convert Blob to JSON for the mutation
                   Some(
                     json.object([
-                      #("$type", json.string("blob")),
                       #("ref", json.string(blob.ref)),
                       #("mimeType", json.string(blob.mime_type)),
                       #("size", json.int(blob.size)),
@@ -615,16 +553,18 @@ fn update_profile_json(
 
       // Create final update with avatar blob if available
       let final_update =
-        update_profile_gql.OrgAtmosphereconfProfileInput(
+        update_profile.OrgAtmosphereconfProfileInput(
           ..update,
           avatar: avatar_blob,
         )
 
-      case graphql.update_profile(config, handle, final_update) {
+      case gql.update_profile(config, handle, final_update) {
         Ok(updated_profile) -> {
           wisp.log_info("API: Profile updated successfully for: " <> handle)
           wisp.json_response(
-            json.to_string(profile.profile_to_json(updated_profile)),
+            json.to_string(get_profile.org_atmosphereconf_profile_to_json(
+              updated_profile,
+            )),
             200,
           )
         }
@@ -788,7 +728,7 @@ fn handle_oauth_callback(
 
                   // Initialize user profile (silent failure)
                   let graphql_config =
-                    graphql.Config(
+                    gql.Config(
                       api_url: "https://api.slices.network/graphql",
                       slice_uri: "at://did:plc:bcgltzqazw5tb6k2g3ttenbj/network.slices.slice/3m3gc7lhwzx2z",
                       access_token: token_response.access_token,

@@ -5,7 +5,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile}
 import ui/avatar
 import ui/button
 import ui/input
@@ -72,15 +72,25 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         option.None -> ""
       }
 
+      // Extract avatar URL from nested Blob structure
+      let avatar_url = case p.avatar {
+        option.Some(blob) -> option.Some(blob.url)
+        option.None -> option.None
+      }
+
       // Convert HomeTown to LocationData
       let location_data = case p.home_town {
         option.Some(town) ->
-          option.Some(location.LocationData(
-            name: town.name,
-            lat: 0.0,
-            lon: 0.0,
-            h3_index: town.h3_index,
-          ))
+          case town.name, town.value {
+            option.Some(name), option.Some(h3_index) ->
+              option.Some(location.LocationData(
+                name: name,
+                lat: 0.0,
+                lon: 0.0,
+                h3_index: h3_index,
+              ))
+            _, _ -> option.None
+          }
         option.None -> option.None
       }
 
@@ -89,7 +99,7 @@ pub fn init_form_data(profile: Option(Profile)) -> FormData {
         description: option.unwrap(p.description, ""),
         location_input: location_input.init(location_data),
         interests: interests_str,
-        avatar_preview_url: p.avatar_url,
+        avatar_preview_url: avatar_url,
         avatar_file_data: option.None,
         success_message: option.None,
         error_message: option.None,

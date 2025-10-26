@@ -11,7 +11,7 @@ import gleam/string
 import lustre/effect.{type Effect}
 import pages/profile_edit
 import query
-import shared/profile
+import shared/api/types
 import ui/layout
 
 // FFI DECLARATIONS ------------------------------------------------------------
@@ -80,7 +80,9 @@ pub fn fetch_profile_with_cache(handle: String) -> Effect(Msg) {
       case body_result {
         Ok(#(200, text)) -> {
           io.println("Got 200 response, parsing JSON...")
-          case json.parse(text, profile.profile_decoder()) {
+          case
+            json.parse(text, types.profile_decoder())
+          {
             Ok(profile_data) -> {
               // Dispatch success
               dispatch(model.ProfileQuerySuccess(handle, profile_data))
@@ -128,7 +130,12 @@ pub fn fetch_attendees_with_cache() -> Effect(Msg) {
       case body_result {
         Ok(#(200, text)) -> {
           io.println("Got 200 response, parsing JSON...")
-          case json.parse(text, decode.list(profile.profile_decoder())) {
+          case
+            json.parse(
+              text,
+              decode.list(types.profile_decoder()),
+            )
+          {
             Ok(profiles) -> {
               // Dispatch success
               dispatch(model.AttendeesQuerySuccess(profiles))
@@ -190,13 +197,13 @@ pub fn save_profile_effect(
   effect.from(fn(dispatch) {
     let url = "/api/profile/" <> handle <> "/update"
 
-    // Build the JSON body
+    // Build the JSON body matching GraphQL input format (camelCase keys)
     let json_fields = []
 
-    // Add display_name if not empty
+    // Add displayName (camelCase) if not empty
     let json_fields = case form_data.display_name {
       "" -> json_fields
-      name -> [#("display_name", json.string(name)), ..json_fields]
+      name -> [#("displayName", json.string(name)), ..json_fields]
     }
 
     // Add description if not empty
@@ -205,7 +212,7 @@ pub fn save_profile_effect(
       desc -> [#("description", json.string(desc)), ..json_fields]
     }
 
-    // Add home_town as JSON object with name and h3_index
+    // Add homeTown (camelCase) as JSON object with optional name and value
     let json_fields = case form_data.location_input.selected_location {
       Some(loc) -> {
         let location_json =
@@ -213,7 +220,7 @@ pub fn save_profile_effect(
             #("name", json.string(loc.name)),
             #("value", json.string(loc.h3_index)),
           ])
-        [#("home_town", location_json), ..json_fields]
+        [#("homeTown", location_json), ..json_fields]
       }
       None -> json_fields
     }
@@ -230,14 +237,14 @@ pub fn save_profile_effect(
       }
     }
 
-    // Add avatar data if a new file was selected
+    // Add avatar data if a new file was selected (still needs special handling for upload)
     let json_fields = case form_data.avatar_file_data {
       Some(file_data) ->
         case file_data.base64_data {
           "" -> json_fields
           _ -> [
-            #("avatar_base64", json.string(file_data.base64_data)),
-            #("avatar_mime_type", json.string(file_data.mime_type)),
+            #("avatarBase64", json.string(file_data.base64_data)),
+            #("avatarMimeType", json.string(file_data.mime_type)),
             ..json_fields
           ]
         }
@@ -254,7 +261,9 @@ pub fn save_profile_effect(
         Ok(#(200, text)) -> {
           io.println("Profile saved successfully, parsing response...")
           // Parse the returned profile
-          case json.parse(text, profile.profile_decoder()) {
+          case
+            json.parse(text, types.profile_decoder())
+          {
             Ok(updated_profile) -> {
               io.println("Profile parsed successfully")
               dispatch(

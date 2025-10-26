@@ -1,9 +1,0 @@
-query CheckProfile($did: String!) {
-    orgAtmosphereconfProfiles(where: { did: { eq: $did } }, first: 1) {
-        edges {
-            node {
-                id
-            }
-        }
-    }
-}

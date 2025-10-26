@@ -357,7 +357,7 @@ pub fn update(current_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
                 )
 
               // Dispatch mutation success (handled by ProfileMutationSuccess)
-              case updated_profile.handle {
+              case updated_profile.actor_handle {
                 option.Some(handle) -> {
                   #(
                     Model(..current_model, edit_form_data: form_data),

@@ -1,10 +1,10 @@
 import api/graphql
-import api/graphql/create_profile as create_profile_gql
 import gleam/io
 import gleam/json
 import gleam/option.{None, Some}
 import gleam/time/duration
 import gleam/time/timestamp
+import shared/api/graphql/create_profile as create_profile_gql
 
 /// Initialize user profile by:
 /// 1. Checking if profile already exists
@@ -64,7 +64,6 @@ pub fn initialize_user_profile(
             Some(avatar_blob) ->
               Some(
                 json.object([
-                  #("$type", json.string("blob")),
                   #("ref", json.string(avatar_blob.ref)),
                   #("mimeType", json.string(avatar_blob.mime_type)),
                   #("size", json.int(avatar_blob.size)),

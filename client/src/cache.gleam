@@ -1,6 +1,6 @@
 import gleam/dict.{type Dict}
 import gleam/option.{type Option, None, Some}
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile}
 
 // CACHE TYPES -----------------------------------------------------------------
 
@@ -72,7 +72,7 @@ fn list_fold_profiles(
   case profiles {
     [] -> acc
     [first, ..rest] -> {
-      case first.handle {
+      case first.actor_handle {
         Some(handle) ->
           list_fold_profiles(rest, dict.insert(acc, handle, first))
         None -> list_fold_profiles(rest, acc)
@@ -97,7 +97,7 @@ pub fn get_all_profiles(cache: Cache) -> List(Profile) {
 
 /// Set a profile in the entity cache
 pub fn set_profile(cache: Cache, profile: Profile) -> Cache {
-  case profile.handle {
+  case profile.actor_handle {
     Some(handle) -> {
       let updated_profiles =
         dict.insert(cache.profile_entities, handle, profile)
@@ -298,7 +298,7 @@ pub fn hydrate_profile(
   current_time_ms: Int,
   stale_time_ms: Int,
 ) -> Cache {
-  case profile.handle {
+  case profile.actor_handle {
     Some(handle) -> {
       // Add to entity cache
       let cache_with_entity = set_profile(cache, profile)
@@ -353,7 +353,7 @@ fn mark_individual_profile_queries_fresh(
   case profiles {
     [] -> cache
     [first, ..rest] -> {
-      case first.handle {
+      case first.actor_handle {
         Some(handle) -> {
           let query_key = "profile:" <> handle
           let updated_cache =

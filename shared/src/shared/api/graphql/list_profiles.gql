@@ -1,0 +1,28 @@
+query ListProfiles {
+  orgAtmosphereconfProfiles {
+    edges {
+      node {
+        id
+        uri
+        cid
+        did
+        actorHandle
+        displayName
+        description
+        avatar {
+          ref
+          mimeType
+          size
+          url(preset: "avatar")
+        }
+        homeTown {
+          name
+          value
+        }
+        interests
+        createdAt
+        indexedAt
+      }
+    }
+  }
+}

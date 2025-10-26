@@ -1,16 +1,16 @@
-import api/graphql/check_profile_exists
-import api/graphql/create_profile as create_profile_gql
-import api/graphql/get_bluesky_profile
-import api/graphql/get_profile as get_profile_gql
-import api/graphql/list_profiles as list_profiles_gql
-import api/graphql/sync_user_collections
-import api/graphql/update_profile as update_profile_gql
-import api/graphql/upload_blob as upload_blob_gql
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
-import shared/profile.{type Profile}
+import shared/api/graphql/check_profile_exists
+import shared/api/graphql/create_profile as create_profile_gql
+import shared/api/graphql/get_bluesky_profile
+import shared/api/graphql/get_profile as get_profile_gql
+import shared/api/graphql/list_profiles as list_profiles_gql
+import shared/api/graphql/sync_user_collections
+import shared/api/graphql/update_profile as update_profile_gql
+import shared/api/graphql/upload_blob as upload_blob_gql
+import shared/api/types
 import squall
 
 pub type Config {
@@ -19,7 +19,7 @@ pub type Config {
 
 /// Create a squall client from our config
 fn create_client(config: Config) -> squall.Client {
-  squall.new_client(config.api_url, [
+  squall.new_erlang_client(config.api_url, [
     #("X-Slice-Uri", config.slice_uri),
     #("Authorization", "Bearer " <> config.access_token),
   ])
@@ -29,83 +29,16 @@ fn create_client(config: Config) -> squall.Client {
 pub fn get_profile_by_handle(
   config: Config,
   handle: String,
-) -> Result(Option(Profile), String) {
+) -> Result(Option(types.Profile), String) {
   let client = create_client(config)
 
   use response <- result.try(get_profile_gql.get_profile(client, handle))
 
-  // Convert the generated response to our Profile type
   case response.org_atmosphereconf_profiles.edges {
     [] -> Ok(None)
-    [first_edge, ..] -> {
-      let node = first_edge.node
-
-      // Convert avatar from generated Blob type to our AvatarBlob type
-      let avatar_blob = case node.avatar {
-        Some(blob) ->
-          Some(profile.AvatarBlob(
-            ref: blob.ref,
-            mime_type: blob.mime_type,
-            size: blob.size,
-          ))
-        None -> None
-      }
-
-      // Convert home_town from generated type to HomeTown type
-      let home_town = case node.home_town {
-        Some(ht) -> convert_home_town(ht)
-        None -> None
-      }
-
-      Ok(
-        Some(profile.Profile(
-          id: node.id,
-          uri: node.uri,
-          cid: node.cid,
-          did: node.did,
-          handle: node.actor_handle,
-          display_name: node.display_name,
-          description: node.description,
-          avatar_url: case node.avatar {
-            Some(blob) -> Some(blob.url)
-            None -> None
-          },
-          avatar_blob: avatar_blob,
-          home_town: home_town,
-          interests: node.interests,
-          created_at: node.created_at,
-          indexed_at: node.indexed_at,
-        )),
-      )
-    }
+    [first_edge, ..] -> Ok(Some(first_edge.node))
   }
 }
-
-/// Convert generated CommunityLexiconLocationHthree to HomeTown type
-fn convert_home_town(
-  ht: get_profile_gql.CommunityLexiconLocationHthree,
-) -> Option(profile.HomeTown) {
-  case ht.name, ht.value {
-    Some(name), Some(value) ->
-      Some(profile.HomeTown(name: name, h3_index: value))
-    _, _ -> None
-  }
-}
-
-/// Convert update_profile's CommunityLexiconLocationHthree to HomeTown type
-fn convert_home_town_from_update(
-  ht: update_profile_gql.CommunityLexiconLocationHthree,
-) -> Option(profile.HomeTown) {
-  case ht.name, ht.value {
-    Some(name), Some(value) ->
-      Some(profile.HomeTown(name: name, h3_index: value))
-    _, _ -> None
-  }
-}
-
-// Re-export the generated input type for convenience
-pub type ProfileUpdate =
-  update_profile_gql.OrgAtmosphereconfProfileInput
 
 /// Upload a blob (e.g., avatar image) and return the blob reference
 pub fn upload_blob(
@@ -127,7 +60,6 @@ pub fn upload_blob(
   // Reconstruct as json.Json with flat ref string
   Ok(
     json.object([
-      #("$type", json.string("blob")),
       #("ref", json.string(blob.ref)),
       #("mimeType", json.string(blob.mime_type)),
       #("size", json.int(blob.size)),
@@ -135,73 +67,61 @@ pub fn upload_blob(
   )
 }
 
+// Helper to convert update_profile response to canonical Profile type
+fn convert_update_profile_to_profile(
+  n: update_profile_gql.OrgAtmosphereconfProfile,
+) -> types.Profile {
+  get_profile_gql.OrgAtmosphereconfProfile(
+    id: n.id,
+    uri: n.uri,
+    cid: n.cid,
+    did: n.did,
+    actor_handle: n.actor_handle,
+    display_name: n.display_name,
+    description: n.description,
+    avatar: case n.avatar {
+      Some(b) ->
+        Some(get_profile_gql.Blob(
+          ref: b.ref,
+          mime_type: b.mime_type,
+          size: b.size,
+          url: b.url,
+        ))
+      None -> None
+    },
+    home_town: case n.home_town {
+      Some(ht) ->
+        Some(get_profile_gql.CommunityLexiconLocationHthree(
+          name: ht.name,
+          value: ht.value,
+        ))
+      None -> None
+    },
+    interests: n.interests,
+    created_at: n.created_at,
+    indexed_at: n.indexed_at,
+  )
+}
+
 /// Update profile via GraphQL mutation
+/// Note: Converts mutation response to Profile type
 pub fn update_profile(
   config: Config,
   _handle: String,
-  update: ProfileUpdate,
-) -> Result(profile.Profile, String) {
+  update: update_profile_gql.OrgAtmosphereconfProfileInput,
+) -> Result(types.Profile, String) {
   let client = create_client(config)
 
-  // Use the generated function directly
   use response <- result.try(update_profile_gql.update_profile(
     client,
     "self",
     update,
   ))
 
-  // Convert generated type to our Profile type
-  let node = response.update_org_atmosphereconf_profile
-  Ok(convert_generated_profile_to_profile(node))
+  Ok(convert_update_profile_to_profile(
+    response.update_org_atmosphereconf_profile,
+  ))
 }
-
-/// Helper to convert generated profile type to our Profile type
-fn convert_generated_profile_to_profile(
-  node: update_profile_gql.OrgAtmosphereconfProfile,
-) -> profile.Profile {
-  let avatar_blob = case node.avatar {
-    Some(blob) ->
-      Some(profile.AvatarBlob(
-        ref: blob.ref,
-        mime_type: blob.mime_type,
-        size: blob.size,
-      ))
-    None -> None
-  }
-
-  let home_town = case node.home_town {
-    Some(ht) -> convert_home_town_from_update(ht)
-    None -> None
-  }
-
-  profile.Profile(
-    id: node.id,
-    uri: node.uri,
-    cid: node.cid,
-    did: node.did,
-    handle: node.actor_handle,
-    display_name: node.display_name,
-    description: node.description,
-    avatar_url: case node.avatar {
-      Some(blob) -> Some(blob.url)
-      None -> None
-    },
-    avatar_blob: avatar_blob,
-    home_town: home_town,
-    interests: node.interests,
-    created_at: node.created_at,
-    indexed_at: node.indexed_at,
-  )
-}
-
-// PROFILE INITIALIZATION HELPERS ----------------------------------------------
-
-// Re-export generated types with semantic names
-pub type BlueskyProfile =
-  get_bluesky_profile.AppBskyActorProfile
-
-pub type BlueskyAvatar =
-  get_bluesky_profile.Blob
 
 /// Check if a profile already exists for the given DID
 pub fn check_profile_exists(config: Config, did: String) -> Result(Bool, String) {
@@ -234,7 +154,7 @@ pub fn sync_user_collections(config: Config, did: String) -> Result(Nil, String)
 pub fn get_bluesky_profile(
   config: Config,
   did: String,
-) -> Result(Option(BlueskyProfile), String) {
+) -> Result(Option(get_bluesky_profile.AppBskyActorProfile), String) {
   let client = create_client(config)
 
   use response <- result.try(get_bluesky_profile.get_bluesky_profile(
@@ -248,14 +168,10 @@ pub fn get_bluesky_profile(
   }
 }
 
-// Re-export the same input type for create operations (it's the same as ProfileUpdate)
-pub type ProfileInput =
-  create_profile_gql.OrgAtmosphereconfProfileInput
-
 /// Create a new profile
 pub fn create_profile(
   config: Config,
-  input: ProfileInput,
+  input: create_profile_gql.OrgAtmosphereconfProfileInput,
 ) -> Result(Nil, String) {
   let client = create_client(config)
 
@@ -268,65 +184,53 @@ pub fn create_profile(
   Ok(Nil)
 }
 
+// Helper to convert list_profiles profile to canonical Profile type
+fn convert_list_profile_to_profile(
+  n: list_profiles_gql.OrgAtmosphereconfProfile,
+) -> types.Profile {
+  get_profile_gql.OrgAtmosphereconfProfile(
+    id: n.id,
+    uri: n.uri,
+    cid: n.cid,
+    did: n.did,
+    actor_handle: n.actor_handle,
+    display_name: n.display_name,
+    description: n.description,
+    avatar: case n.avatar {
+      Some(b) ->
+        Some(get_profile_gql.Blob(
+          ref: b.ref,
+          mime_type: b.mime_type,
+          size: b.size,
+          url: b.url,
+        ))
+      None -> None
+    },
+    home_town: case n.home_town {
+      Some(ht) ->
+        Some(get_profile_gql.CommunityLexiconLocationHthree(
+          name: ht.name,
+          value: ht.value,
+        ))
+      None -> None
+    },
+    interests: n.interests,
+    created_at: n.created_at,
+    indexed_at: n.indexed_at,
+  )
+}
+
 /// List all profiles
-pub fn list_profiles(config: Config) -> Result(List(Profile), String) {
+/// Note: Converts list_profiles response to Profile type
+pub fn list_profiles(config: Config) -> Result(List(types.Profile), String) {
   let client = create_client(config)
 
   use response <- result.try(list_profiles_gql.list_profiles(client))
 
-  // Convert all profiles from generated types to our Profile type
+  // Extract and convert the profile nodes from the edges
   let profiles =
     response.org_atmosphereconf_profiles.edges
-    |> list.map(fn(edge) {
-      let node = edge.node
-
-      // Convert avatar from generated Blob type to our AvatarBlob type
-      let avatar_blob = case node.avatar {
-        Some(blob) ->
-          Some(profile.AvatarBlob(
-            ref: blob.ref,
-            mime_type: blob.mime_type,
-            size: blob.size,
-          ))
-        None -> None
-      }
-
-      // Convert home_town from generated type to HomeTown type
-      let home_town = case node.home_town {
-        Some(ht) -> convert_home_town_from_list(ht)
-        None -> None
-      }
-
-      profile.Profile(
-        id: node.id,
-        uri: node.uri,
-        cid: node.cid,
-        did: node.did,
-        handle: node.actor_handle,
-        display_name: node.display_name,
-        description: node.description,
-        avatar_url: case node.avatar {
-          Some(blob) -> Some(blob.url)
-          None -> None
-        },
-        avatar_blob: avatar_blob,
-        home_town: home_town,
-        interests: node.interests,
-        created_at: node.created_at,
-        indexed_at: node.indexed_at,
-      )
-    })
+    |> list.map(fn(edge) { convert_list_profile_to_profile(edge.node) })
 
   Ok(profiles)
-}
-
-/// Convert list_profiles's CommunityLexiconLocationHthree to HomeTown type
-fn convert_home_town_from_list(
-  ht: list_profiles_gql.CommunityLexiconLocationHthree,
-) -> Option(profile.HomeTown) {
-  case ht.name, ht.value {
-    Some(name), Some(value) ->
-      Some(profile.HomeTown(name: name, h3_index: value))
-    _, _ -> None
-  }
 }

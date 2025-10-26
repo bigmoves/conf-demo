@@ -3,18 +3,30 @@ import gleam/option.{type Option}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile}
 import ui/avatar
 import ui/button
 import ui/icon
 
 pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
+  // Extract avatar URL from nested Blob structure
+  let avatar_url = case p.avatar {
+    option.Some(blob) -> option.Some(blob.url)
+    option.None -> option.None
+  }
+
+  // Extract home town name
+  let home_town_name = case p.home_town {
+    option.Some(ht) -> ht.name
+    option.None -> option.None
+  }
+
   html.div([attribute.class("space-y-8")], [
     // Profile header
     html.div([attribute.class("flex items-start gap-6")], [
       // Avatar
       avatar.avatar(
-        p.avatar_url,
+        avatar_url,
         option.unwrap(p.display_name, p.did),
         avatar.Xl,
       ),
@@ -26,7 +38,7 @@ pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
           html.text(option.unwrap(p.display_name, p.did)),
         ]),
         // Handle
-        case p.handle {
+        case p.actor_handle {
           option.Some(handle) ->
             html.p([attribute.class("text-zinc-300 text-base")], [
               html.text("@" <> handle),
@@ -38,17 +50,17 @@ pub fn view(p: Profile, current_user_handle: Option(String)) -> Element(msg) {
           html.text(p.did),
         ]),
         // Home town
-        case p.home_town {
-          option.Some(town) ->
+        case home_town_name {
+          option.Some(name) ->
             html.p([attribute.class("text-zinc-400 text-sm")], [
-              html.text("📍 " <> town.name),
+              html.text("📍 " <> name),
             ])
           option.None -> html.div([], [])
         },
       ]),
 
       // Edit button - only show if current user owns this profile
-      case p.handle, current_user_handle {
+      case p.actor_handle, current_user_handle {
         option.Some(profile_handle), option.Some(user_handle)
           if profile_handle == user_handle
         ->

@@ -1,4 +1,4 @@
 # graphql.config.yml
 
 schema: "./server/schema.graphql"
-documents: "server/**/*.{gql}"
+documents: "shared/**/*.{gql}"

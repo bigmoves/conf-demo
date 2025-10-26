@@ -12,7 +12,7 @@ import pages/profile_edit
 import plinth/browser/document
 import plinth/browser/element as plinth_element
 import query
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile, profile_decoder}
 import ui/layout
 
 // INITIALIZATION --------------------------------------------------------------
@@ -159,7 +159,10 @@ fn read_embedded_profile_data() -> Option(Profile) {
   document.query_selector("#model")
   |> result.map(plinth_element.inner_text)
   |> result.try(fn(json_string) {
-    json.parse(json_string, decode.at(["profile"], profile.profile_decoder()))
+    json.parse(
+      json_string,
+      decode.at(["profile"], profile_decoder()),
+    )
     |> result.replace_error(Nil)
   })
   |> option.from_result
@@ -187,7 +190,10 @@ fn read_embedded_attendees_data() -> Option(List(Profile)) {
   |> result.try(fn(json_string) {
     json.parse(
       json_string,
-      decode.at(["attendees"], decode.list(profile.profile_decoder())),
+      decode.at(
+        ["attendees"],
+        decode.list(profile_decoder()),
+      ),
     )
     |> result.replace_error(Nil)
   })

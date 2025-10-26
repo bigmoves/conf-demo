@@ -3,7 +3,7 @@ import gleam/option
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile}
 import ui/avatar
 
 pub fn view(profiles: List(Profile)) -> Element(msg) {
@@ -26,8 +26,20 @@ pub fn view(profiles: List(Profile)) -> Element(msg) {
 }
 
 fn view_profile_card(p: Profile) -> Element(msg) {
-  let handle = option.unwrap(p.handle, "")
+  let handle = option.unwrap(p.actor_handle, "")
   let display_name = option.unwrap(p.display_name, p.did)
+
+  // Extract avatar URL from nested Blob structure
+  let avatar_url = case p.avatar {
+    option.Some(blob) -> option.Some(blob.url)
+    option.None -> option.None
+  }
+
+  // Extract home town name
+  let home_town_name = case p.home_town {
+    option.Some(ht) -> ht.name
+    option.None -> option.None
+  }
 
   html.a(
     [
@@ -39,7 +51,7 @@ fn view_profile_card(p: Profile) -> Element(msg) {
     [
       html.div([attribute.class("flex items-start gap-4")], [
         // Avatar
-        avatar.avatar(p.avatar_url, display_name, avatar.Md),
+        avatar.avatar(avatar_url, display_name, avatar.Md),
         // Profile info
         html.div([attribute.class("flex-1 min-w-0")], [
           // Display name
@@ -50,7 +62,7 @@ fn view_profile_card(p: Profile) -> Element(msg) {
             ],
           ),
           // Handle
-          case p.handle {
+          case p.actor_handle {
             option.Some(h) ->
               html.p([attribute.class("text-sm text-zinc-400 truncate")], [
                 html.text("@" <> h),
@@ -58,8 +70,8 @@ fn view_profile_card(p: Profile) -> Element(msg) {
             option.None -> html.text("")
           },
           // Location
-          case p.home_town {
-            option.Some(ht) ->
+          case home_town_name {
+            option.Some(name) ->
               html.p(
                 [
                   attribute.class(
@@ -68,7 +80,7 @@ fn view_profile_card(p: Profile) -> Element(msg) {
                 ],
                 [
                   html.span([attribute.class("text-zinc-600")], [html.text("📍")]),
-                  html.text(ht.name),
+                  html.text(name),
                 ],
               )
             option.None -> html.text("")

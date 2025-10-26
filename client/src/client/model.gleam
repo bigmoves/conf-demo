@@ -3,7 +3,7 @@ import gleam/option
 import gleam/uri.{type Uri}
 import pages/profile_edit
 import query
-import shared/profile.{type Profile}
+import shared/api/types.{type Profile}
 import ui/layout
 
 // ROUTING ---------------------------------------------------------------------
