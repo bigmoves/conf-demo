@@ -338,6 +338,7 @@ pub fn update(current_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
                 effects.save_profile_effect(
                   handle,
                   updated_model.edit_form_data,
+                  updated_model.cache,
                 ),
               )
             }

@@ -1,3 +1,4 @@
+import cache
 import client/model.{type Msg}
 import gleam/dynamic/decode
 import gleam/int
@@ -193,12 +194,29 @@ pub fn process_file_from_input_effect(input_id: String) -> Effect(Msg) {
 pub fn save_profile_effect(
   handle: String,
   form_data: profile_edit.FormData,
+  cache: cache.Cache,
 ) -> Effect(Msg) {
   effect.from(fn(dispatch) {
     let url = "/api/profile/" <> handle <> "/update"
 
+    // Get the original profile from cache to preserve createdAt
+    let original_profile = cache.get_profile(cache, handle)
+
     // Build the JSON body matching GraphQL input format (camelCase keys)
     let json_fields = []
+
+    // Add createdAt from original profile to preserve it
+    let json_fields = case original_profile {
+      Some(profile) ->
+        case profile.created_at {
+          Some(created_at) -> [
+            #("createdAt", json.string(created_at)),
+            ..json_fields
+          ]
+          None -> json_fields
+        }
+      None -> json_fields
+    }
 
     // Add displayName (camelCase) if not empty
     let json_fields = case form_data.display_name {
